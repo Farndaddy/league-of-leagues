@@ -404,6 +404,7 @@
   </div>
 </div>
 
+<script src="data.js"></script>
 <script>
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const CONFIG = {
@@ -496,7 +497,7 @@ function loadLiveData(){
 
     // Build allSeasonStandings for all years
     for(const yr of CONFIG.SEASONS){
-      if(S.liveSeasonsData[yr]){
+      if(S.liveSeasonsData && S.liveSeasonsData[yr]){
         S.allSeasonStandings[yr] = buildStandingsObj(yr);
       }
     }
@@ -512,7 +513,7 @@ function loadLiveData(){
 }
 
 function buildStandingsObj(yr){
-  const sd = S.liveSeasonsData[yr];
+  const sd = (S.liveSeasonsData || {})[yr];
   if(!sd) return {overall:[],nfl:[],nba:[],mlb:[]};
   const rows = sd.standings || [];
   const toRow = (r) => {
