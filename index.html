@@ -1,0 +1,1693 @@
+<!DOCTYPE html>
+<!-- League of Leagues — Single-file dashboard -->
+<!-- Data loaded from data.js (run update.py to regenerate) -->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>League of Leagues</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0d1520;
+    --surface: #111d2e;
+    --card: #162032;
+    --border: #1e2f45;
+    --text: #e2e8f0;
+    --text-2: #94a3b8;
+    --text-m: #4d6080;
+    --nfl: #ff6b6b;
+    --nba: #60a5fa;
+    --mlb: #fbbf24;
+    --green: #4ade80;
+    --accent: #6366f1;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; min-height: 100vh; }
+
+  /* NAV */
+  nav { background: var(--surface); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; }
+  .nav-inner { max-width: 1400px; margin: 0 auto; padding: 0 16px; display: flex; align-items: center; gap: 4px; height: 52px; }
+  .nav-logo { font-weight: 700; font-size: 16px; color: var(--text); margin-right: 16px; white-space: nowrap; }
+  .nav-logo span { color: var(--accent); }
+  .nav-tab { padding: 6px 14px; border-radius: 6px; cursor: pointer; color: var(--text-2); font-size: 13px; font-weight: 500; border: none; background: none; transition: all .15s; white-space: nowrap; }
+  .nav-tab:hover { background: var(--card); color: var(--text); }
+  .nav-tab.active { background: var(--accent); color: #fff; }
+
+  /* LAYOUT */
+  .page { max-width: 1400px; margin: 0 auto; padding: 20px 16px; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* CARDS */
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .card-title { font-size: 13px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 12px; }
+
+  /* PILLS */
+  .pills { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+  .pill { padding: 5px 12px; border-radius: 20px; cursor: pointer; font-size: 12px; font-weight: 600; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); transition: all .15s; }
+  .pill:hover { border-color: var(--accent); color: var(--text); }
+  .pill.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .pill-nfl.active { background: var(--nfl); border-color: var(--nfl); }
+  .pill-nba.active { background: var(--nba); border-color: var(--nba); }
+  .pill-mlb.active { background: var(--mlb); border-color: var(--mlb); color: #1a1a1a; }
+
+  /* SPORT TAGS */
+  .stag { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; text-transform: uppercase; display: inline-block; }
+  .stag-nfl { background: #ff6b6b22; color: var(--nfl); }
+  .stag-nba { background: #60a5fa22; color: var(--nba); }
+  .stag-mlb { background: #fbbf2422; color: var(--mlb); color: #f59e0b; }
+  .stag-draft { background: #6366f122; color: #818cf8; }
+  .stag-supp { background: #94a3b822; color: var(--text-2); }
+
+  /* SPORT BORDER */
+  .sport-nfl { border-left: 3px solid var(--nfl); }
+  .sport-nba { border-left: 3px solid var(--nba); }
+  .sport-mlb { border-left: 3px solid var(--mlb); }
+  .sport-supp { border-left: 3px solid var(--text-m); }
+
+  /* TABLES */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { color: var(--text-2); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; }
+  td { padding: 9px 10px; border-bottom: 1px solid #1a2840; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #1a2840; }
+  .rank-badge { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: var(--surface); font-size: 11px; font-weight: 700; }
+  .rank-1 { background: #f59e0b22; color: #f59e0b; }
+  .rank-2 { background: #94a3b822; color: #94a3b8; }
+  .rank-3 { background: #f97316; color: #fff; }
+
+  /* TEAM CHIP */
+  .team-chip { display: inline-flex; align-items: center; gap: 5px; }
+  .team-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  /* BANNER */
+  .banner { background: #0f2a1a; border: 1px solid #1e4d2a; border-radius: 8px; padding: 10px 16px; margin-bottom: 16px; font-size: 12px; color: var(--green); }
+  .banner.warn { background: #2a1a0f; border-color: #4d2a1e; color: #f59e0b; }
+
+  /* GRID */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  @media (max-width: 900px) { .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; } }
+  @media (max-width: 1200px) { .grid-4 { grid-template-columns: repeat(2, 1fr); } }
+
+  /* OVERVIEW */
+  .champ-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+  .champ-year { font-size: 11px; color: var(--text-2); font-weight: 600; margin-bottom: 8px; }
+  .champ-team { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .champ-owner { font-size: 12px; color: var(--text-2); margin-bottom: 10px; }
+  .champ-badges { display: flex; flex-wrap: wrap; gap: 5px; }
+  .champ-badge { font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 600; }
+  .in-progress { background: var(--card); border: 1px solid var(--accent); border-radius: 10px; padding: 14px; }
+
+  /* STAT CARDS */
+  .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  .stat-label { font-size: 11px; color: var(--text-2); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+  .stat-value { font-size: 22px; font-weight: 700; margin: 4px 0 2px; }
+  .stat-sub { font-size: 12px; color: var(--text-2); }
+
+  /* DRAFT BOARD */
+  .draft-scroll { overflow-x: auto; margin-top: 12px; }
+  .draft-grid { border-collapse: separate; border-spacing: 2px; table-layout: fixed; }
+  .draft-grid th { background: var(--surface); border: none; padding: 6px 8px; font-size: 11px; width: 100px; min-width: 100px; max-width: 100px; white-space: normal; word-break: break-word; vertical-align: top; }
+  .draft-grid .round-cell { background: var(--surface); font-size: 11px; color: var(--text-2); font-weight: 700; padding: 4px 8px; text-align: center; position: sticky; left: 0; z-index: 4; width: 40px; min-width: 40px; max-width: 40px; }
+  .pick-cell { background: var(--card); border-radius: 4px; padding: 4px 6px; font-size: 11px; width: 100px; min-width: 100px; max-width: 100px; vertical-align: top; overflow: hidden; }
+  .pick-cell.empty { opacity: .3; }
+  .pick-num { font-size: 10px; color: var(--text-m); }
+  .pick-player { font-weight: 600; line-height: 1.3; word-break: break-word; }
+  .pick-traded { font-size: 10px; color: #f59e0b; margin-top: 2px; }
+  .pick-future { font-size: 10px; color: var(--text-m); font-style: italic; }
+  .pick-owned { font-size: 10px; color: #f59e0b; }
+  .keeper-section { margin-top: 16px; }
+  .keeper-section h4 { font-size: 12px; color: var(--text-2); margin-bottom: 8px; }
+
+  /* DRAFT RESULTS */
+  .results-toggle { display: flex; gap: 4px; margin-bottom: 14px; }
+  .toggle-btn { padding: 6px 14px; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; }
+  .toggle-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  .pick-row { display: flex; align-items: center; gap: 8px; padding: 5px 10px; border-bottom: 1px solid #1a2840; border-left: 3px solid transparent; }
+  .pick-row:last-child { border-bottom: none; }
+  .pick-row-num { font-size: 11px; color: var(--text-m); width: 28px; flex-shrink: 0; text-align: right; }
+  .pick-row-team { flex-shrink: 0; }
+  .pick-row-player { font-weight: 600; font-size: 13px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pick-row-traded-label { font-size: 11px; color: #f59e0b; flex-shrink: 0; }
+  .pick-row-trade-icon { font-size: 11px; color: #f59e0b; flex-shrink: 0; }
+
+  .team-section { margin-bottom: 20px; }
+  .team-section-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  .team-section-name { font-size: 15px; font-weight: 700; }
+  .team-section-owner { font-size: 12px; color: var(--text-2); }
+
+  /* STANDINGS */
+  .standings-tabs { display: flex; gap: 4px; margin-bottom: 14px; }
+  .std-tab { padding: 5px 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; }
+  .std-tab.active { background: var(--card); border-color: var(--accent); color: var(--text); }
+
+  /* EARNINGS TABLE */
+  .earnings-section { margin-bottom: 16px; }
+  .earnings-section-title { font-size: 12px; font-weight: 700; color: var(--text-2); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+  .earnings-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid #1a2840; font-size: 13px; }
+  .earnings-row:last-child { border-bottom: none; }
+  .earnings-place { color: var(--text-2); font-size: 12px; min-width: 90px; }
+  .earnings-amount { font-weight: 700; color: var(--green); }
+  .earnings-winner { flex: 1; padding: 0 12px; }
+  .earnings-pending { font-style: italic; color: var(--text-m); }
+
+  /* KEEPERS */
+  .keepers-grid { overflow-x: auto; }
+  .keepers-table { border-collapse: collapse; width: 100%; }
+  .keepers-table th { background: var(--surface); border: 1px solid var(--border); padding: 8px 10px; font-size: 11px; min-width: 130px; }
+  .keepers-table td { border: 1px solid var(--border); padding: 8px 10px; vertical-align: top; }
+  .keeper-player { font-size: 12px; padding: 2px 0; display: flex; align-items: flex-start; gap: 4px; }
+  .keeper-via { font-size: 10px; color: #f59e0b; }
+
+  /* TRADES */
+  .trade-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; align-items: center; }
+  .trade-search { flex: 1; min-width: 180px; max-width: 280px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 7px 12px; color: var(--text); font-size: 13px; outline: none; }
+  .trade-search:focus { border-color: var(--accent); }
+  .trade-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; overflow: hidden; }
+  .trade-header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: #0e1929; border-bottom: 1px solid var(--border); font-size: 12px; }
+  .trade-num { font-weight: 700; color: var(--text-2); }
+  .trade-date { color: var(--text-m); }
+  .trade-season { color: var(--text-2); }
+  .trade-body { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; padding: 12px 14px; }
+  .trade-side { }
+  .trade-owner { font-weight: 700; font-size: 13px; margin-bottom: 2px; }
+  .trade-team { font-size: 11px; color: var(--text-2); margin-bottom: 8px; }
+  .trade-items { }
+  .trade-item { font-size: 12px; padding: 2px 0; color: var(--text); }
+  .trade-pick-item { font-size: 12px; padding: 2px 0; color: #f59e0b; }
+  .trade-arrow { display: flex; align-items: center; color: var(--text-m); font-size: 18px; padding-top: 20px; }
+  .trade-count { font-size: 11px; color: var(--text-2); margin-top: 8px; }
+
+  /* CHART */
+  .chart-wrap { position: relative; height: 280px; }
+
+  /* ANALYSIS CARD */
+  .analysis-item { padding: 8px 0; border-bottom: 1px solid #1a2840; display: flex; gap: 12px; align-items: baseline; }
+  .analysis-item:last-child { border-bottom: none; }
+  .analysis-label { font-size: 12px; color: var(--text-2); min-width: 140px; }
+  .analysis-val { font-weight: 600; }
+
+  /* SECTION SPACING */
+  .section-gap { margin-top: 20px; }
+
+  /* LOADING */
+  #loading { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; z-index: 999; flex-direction: column; gap: 12px; }
+  .spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* MISC */
+  .flex-between { display: flex; align-items: center; justify-content: space-between; }
+  .mb-12 { margin-bottom: 12px; }
+  .mb-16 { margin-bottom: 16px; }
+  .text-sm { font-size: 12px; }
+  .text-muted { color: var(--text-2); }
+  .font-bold { font-weight: 700; }
+  .empty-state { text-align: center; padding: 40px; color: var(--text-m); }
+  .scrollable { overflow-y: auto; max-height: 600px; }
+
+  select.pill-select { appearance: none; padding: 5px 12px; border-radius: 20px; cursor: pointer; font-size: 12px; font-weight: 600; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); }
+
+  /* TWO-LINE PLAYER NAMES */
+  .pick-name-first { font-weight: 700; font-size: 11px; line-height: 1.25; }
+  .pick-name-last  { font-weight: 600; font-size: 11px; line-height: 1.25; color: var(--text-2); }
+
+  /* EMPHASIZED TRADED PICKS (future board) */
+  .pick-cell-traded { background: #221a08 !important; border: 1px solid #f59e0b66 !important; border-radius: 4px; }
+  .pick-owned-emph  { font-size: 12px; font-weight: 700; color: #f59e0b; margin-top: 2px; line-height: 1.3; }
+
+  /* KEEPER TABLE — non-sticky headers */
+  .keeper-grid th { position: static !important; background: var(--surface); }
+
+  /* CHAMPION CARDS — placement rows */
+  .champ-place-row { font-size: 12px; padding: 3px 0; display: flex; align-items: baseline; gap: 5px; }
+  .champ-place-label { font-weight: 700; min-width: 28px; }
+  .champ-place-team  { flex: 1; }
+  .champ-place-pts   { font-size: 11px; color: var(--text-m); }
+
+  /* DRAFT RESULTS 3-COL */
+  .dr-round-group { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+  @media (max-width: 1000px) { .dr-round-group { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 600px)  { .dr-round-group { grid-template-columns: 1fr; } }
+  .dr-round-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .dr-round-title { font-size: 11px; font-weight: 700; color: var(--text-2); text-transform: uppercase; letter-spacing: .06em; padding: 8px 12px; background: var(--surface); border-bottom: 1px solid var(--border); }
+
+  /* BY-TEAM 3-COL */
+  .dr-teams-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 1000px) { .dr-teams-grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 600px)  { .dr-teams-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <div style="color:var(--text-2);font-size:13px;">Loading League of Leagues…</div>
+</div>
+
+<nav>
+  <div class="nav-inner">
+    <div class="nav-logo">League<span>of</span>Leagues</div>
+    <button class="nav-tab active" onclick="switchTab('overview')">Overview</button>
+    <button class="nav-tab" onclick="switchTab('draftboard')">Draft Board</button>
+    <button class="nav-tab" onclick="switchTab('draftresults')">Draft Results</button>
+    <button class="nav-tab" onclick="switchTab('standings')">Standings</button>
+    <button class="nav-tab" onclick="switchTab('keepers')">Keepers</button>
+    <button class="nav-tab" onclick="switchTab('trades')">Trades</button>
+  </div>
+</nav>
+
+<div class="page">
+  <!-- OVERVIEW -->
+  <div id="tab-overview" class="tab-panel active">
+    <div id="banner-area"></div>
+    <div id="ov-stats" class="grid-4 mb-16"></div>
+    <div class="grid-2">
+      <div>
+        <div class="card mb-16">
+          <div class="flex-between mb-12">
+            <div class="card-title" style="margin-bottom:0">Season Standings</div>
+            <div class="pills" id="ov-year-pills" style="margin-bottom:0"></div>
+          </div>
+          <div id="ov-standings-table"></div>
+        </div>
+      </div>
+      <div>
+        <div class="card mb-16">
+          <div class="card-title">Recent Trades</div>
+          <div id="ov-trades"></div>
+        </div>
+      </div>
+    </div>
+    <div class="section-gap">
+      <div class="card-title" style="padding-bottom:8px">Champions by Season</div>
+      <div id="ov-champs" class="grid-4"></div>
+    </div>
+    <div class="section-gap">
+      <div class="card-title" style="padding-bottom:8px">Career Earnings Leaders</div>
+      <div class="card">
+        <div id="ov-career-earnings"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DRAFT BOARD -->
+  <div id="tab-draftboard" class="tab-panel">
+    <div class="flex-between mb-16">
+      <div>
+        <div class="card-title" style="margin-bottom:4px">Draft Board</div>
+        <div style="font-size:12px;color:var(--text-2)">Pick grid by round · sport color-coded · 🔄 = traded pick</div>
+      </div>
+      <div class="pills" id="db-year-pills"></div>
+    </div>
+    <div class="card">
+      <div id="db-legend" class="mb-12" style="display:flex;gap:14px;flex-wrap:wrap;">
+        <span style="font-size:11px;color:var(--nfl)">■ NFL</span>
+        <span style="font-size:11px;color:var(--nba)">■ NBA</span>
+        <span style="font-size:11px;color:var(--mlb)">■ MLB</span>
+        <span style="font-size:11px;color:#f59e0b">🔄 Traded Pick</span>
+      </div>
+      <div class="draft-scroll" id="draft-board-wrap"></div>
+    </div>
+    <div class="section-gap card" id="db-keepers-wrap"></div>
+  </div>
+
+  <!-- DRAFT RESULTS -->
+  <div id="tab-draftresults" class="tab-panel">
+    <div class="flex-between mb-16">
+      <div>
+        <div class="card-title" style="margin-bottom:4px">Draft Results</div>
+        <div style="font-size:12px;color:var(--text-2)">All picks in chronological order</div>
+      </div>
+      <div class="pills" id="dr-year-pills"></div>
+    </div>
+    <div class="mb-16" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <div class="results-toggle">
+        <button class="toggle-btn active" id="btn-seq" onclick="setResultsView('seq')">By Order</button>
+        <button class="toggle-btn" id="btn-team" onclick="setResultsView('team')">By Team</button>
+      </div>
+    </div>
+    <div id="dr-content"></div>
+  </div>
+
+  <!-- STANDINGS -->
+  <div id="tab-standings" class="tab-panel">
+    <div class="flex-between mb-16">
+      <div class="card-title" style="margin-bottom:0">Standings &amp; Earnings</div>
+      <div class="pills" id="std-year-pills"></div>
+    </div>
+    <div class="standings-tabs mb-16" id="std-sport-tabs">
+      <button class="std-tab active" onclick="setStdView('overall')">Overall</button>
+      <button class="std-tab" onclick="setStdView('nfl')">NFL</button>
+      <button class="std-tab" onclick="setStdView('nba')">NBA</button>
+      <button class="std-tab" onclick="setStdView('mlb')">MLB</button>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div id="std-table"></div>
+      </div>
+      <div>
+        <div class="card mb-16">
+          <div class="card-title">Season Earnings</div>
+          <div id="std-earnings"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Analysis</div>
+          <div id="std-analysis"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KEEPERS -->
+  <div id="tab-keepers" class="tab-panel">
+    <div class="flex-between mb-16">
+      <div class="card-title" style="margin-bottom:0">Keepers</div>
+      <div class="pills" id="kp-view-pills">
+        <button class="pill active" onclick="setKpView('alltime')">All-Time</button>
+        <button class="pill" onclick="setKpView('year')">By Year</button>
+      </div>
+    </div>
+    <div class="pills" id="kp-year-pills" style="display:none"></div>
+    <div id="kp-content"></div>
+  </div>
+
+  <!-- TRADES -->
+  <div id="tab-trades" class="tab-panel">
+    <div class="flex-between mb-16">
+      <div class="card-title" style="margin-bottom:0">Trades</div>
+    </div>
+    <div class="trade-filters">
+      <div class="pills" id="tr-year-pills"></div>
+      <input class="trade-search" id="tr-search" placeholder="Search players, teams…" oninput="filterTrades()">
+      <div class="pills" id="tr-sport-pills">
+        <button class="pill active" onclick="setTrSport('all')">All Sports</button>
+        <button class="pill pill-nfl" onclick="setTrSport('NFL')">NFL</button>
+        <button class="pill pill-nba" onclick="setTrSport('NBA')">NBA</button>
+        <button class="pill pill-mlb" onclick="setTrSport('MLB')">MLB</button>
+        <button class="pill" onclick="setTrSport('Draft')">Draft</button>
+      </div>
+    </div>
+    <div id="tr-count" class="mb-16 text-sm text-muted"></div>
+    <div class="grid-2 mb-16">
+      <div id="tr-list"></div>
+      <div>
+        <div class="card">
+          <div class="card-title" id="traders-chart-title">Most Active Traders</div>
+          <div class="chart-wrap"><canvas id="traders-chart"></canvas></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────────────────────────────
+const CONFIG = {
+  SPREADSHEET_ID: '1JXV5W4bmmyGzZkKwqm94juW7qP8H0WEeg1GFJRK2M34',
+  DRAFT_YEARS: [2026,2025,2024,2023,2022,2021],
+  SEASONS: [2026,2025,2024,2023,2022],
+  SHEETS: {
+    standings_overall: '1905868862',
+    trades: '444073537',
+    draft_2026: '733728654',
+    draft_2025: '1867088147',
+    draft_2024: '64438121',
+    draft_2023: '705043393',
+    draft_2022: '1638624110',
+    draft_2021: '1384131078',
+  }
+};
+
+const TEAM_COLORS = ['#6366f1','#06b6d4','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#84cc16','#3b82f6','#a855f7'];
+const TEAM_ALIASES = { fcc:'thanos', fccthanos:'thanos' };
+const seasonLabels = {2026:'2025-26 ▶',2025:'2024-25',2024:'2023-24',2023:'2022-23',2022:'2021-22'};
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+const S = {
+  tab: 'overview',
+  draftYear: 2026,
+  resultsYear: 2026,
+  resultsView: 'seq',
+  standings: { overall:[], nfl:[], nba:[], mlb:[] },
+  standingsView: 'overall',
+  stdYear: 2026,
+  liveSeasonsData: null,
+  careerEarnings: [],
+  ovYear: 2026,
+  trYear: 'all',
+  trSport: 'all',
+  drafts: {},
+  teams: [],
+  trades: [], filteredTrades: [],
+  allTimeChamps: [],
+  allSeasonStandings: {},
+  charts: {},
+  usingDemo: false,
+  kpView: 'alltime',
+  kpYear: 2025,
+};
+
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+function slugify(s){ return (s||'').toLowerCase().replace(/[^a-z0-9]/g,''); }
+function normTeam(s){ const k = slugify(s); return TEAM_ALIASES[k] || k; }
+function sportClass(s){ return {NFL:'sport-nfl',NBA:'sport-nba',MLB:'sport-mlb',SUPP:'sport-supp'}[s]||'sport-supp'; }
+function stagHtml(s){
+  if(!s) return '';
+  const map = {NFL:'stag-nfl',NBA:'stag-nba',MLB:'stag-mlb',Draft:'stag-draft',SUPP:'stag-supp'};
+  return `<span class="stag ${map[s]||'stag-supp'}">${s}</span>`;
+}
+function teamColor(i){ return TEAM_COLORS[i % TEAM_COLORS.length]; }
+function teamChipHtml(name, idx, size=8){
+  return `<span class="team-chip"><span class="team-dot" style="width:${size}px;height:${size}px;background:${teamColor(idx)}"></span>${esc(name)}</span>`;
+}
+function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function fmtMoney(n){ return n!=null ? '$'+Number(n).toLocaleString() : '—'; }
+function rankBadge(r){
+  const cls = r===1?'rank-1':r===2?'rank-2':r===3?'rank-3':'';
+  return `<span class="rank-badge ${cls}">${r}</span>`;
+}
+
+// ─── DATA LOADING ─────────────────────────────────────────────────────────────
+function loadLiveData(){
+  const LD = window.LIVE_DATA;
+  if(!LD) return false;
+
+  // Draft boards
+  if(LD.draftBoards){
+    for(const yr of CONFIG.DRAFT_YEARS){
+      const db = LD.draftBoards[yr] || LD.draftBoards[String(yr)];
+      if(db) S.drafts[yr] = db;
+    }
+  }
+
+  // Standings
+  if(LD.standingsData){
+    const sd = LD.standingsData;
+    S.liveSeasonsData = sd.seasons || {};
+    S.careerEarnings = sd.careerEarnings || [];
+    buildAllTimeChampsFromSD(sd);
+
+    // Build standings for default year
+    buildStandingsFromSD(S.stdYear);
+
+    // Build allSeasonStandings for all years
+    for(const yr of CONFIG.SEASONS){
+      if(S.liveSeasonsData[yr]){
+        S.allSeasonStandings[yr] = buildStandingsObj(yr);
+      }
+    }
+  }
+
+  // Trades
+  if(LD.parsedTrades){
+    S.trades = LD.parsedTrades;
+    S.filteredTrades = [...S.trades];
+  }
+
+  return true;
+}
+
+function buildStandingsObj(yr){
+  const sd = S.liveSeasonsData[yr];
+  if(!sd) return {overall:[],nfl:[],nba:[],mlb:[]};
+  const rows = sd.standings || [];
+  const toRow = (r) => {
+    const owner = getOwnerForTeam(r.team, yr);
+    const earnings = getCareerEarningsForYear(owner, yr);
+    return { Team: r.team, Owner: owner, Rank: r.rank,
+             nflPts: r.nfl_pts, nbaPts: r.nba_pts, mlbPts: r.mlb_pts,
+             total: r.total_pts, earnings, tiebreaker: r.tiebreaker };
+  };
+  const all = rows.map(toRow);
+  const nfl = [...all].sort((a,b)=>(b.nflPts||0)-(a.nflPts||0)).map((r,i)=>({...r,Rank:i+1}));
+  const nba = [...all].sort((a,b)=>(b.nbaPts||0)-(a.nbaPts||0)).map((r,i)=>({...r,Rank:i+1}));
+  const mlb = [...all].sort((a,b)=>(b.mlbPts||0)-(a.mlbPts||0)).map((r,i)=>({...r,Rank:i+1}));
+  return { overall: all, nfl, nba, mlb };
+}
+
+function buildStandingsFromSD(yr){
+  const obj = buildStandingsObj(yr);
+  S.standings.overall = obj.overall;
+  S.standings.nfl = obj.nfl;
+  S.standings.nba = obj.nba;
+  S.standings.mlb = obj.mlb;
+}
+
+function buildAllTimeChampsFromSD(sd){
+  const ch = sd.champions || {};
+  // Build per-year champion cards
+  const yearMap = {};
+  for(const yr of [2022,2023,2024,2025,2026]){
+    yearMap[yr] = { year: yr, label: seasonLabels[yr],
+      overall: null, nfl: null, nba: null, mlb: null };
+  }
+  function fill(arr, sport){
+    for(const c of (arr||[])){
+      if(yearMap[c.year]){
+        yearMap[c.year][sport] = { owner: c.owner, points: c.points };
+      }
+    }
+  }
+  fill(ch.overall, 'overall');
+  fill(ch.nfl, 'nfl');
+  fill(ch.nba, 'nba');
+  fill(ch.mlb, 'mlb');
+  S.allTimeChamps = Object.values(yearMap).sort((a,b)=>b.year-a.year);
+}
+
+function getOwnerForTeam(teamName, yr){
+  // Try to find owner from draft board for that year
+  const db = S.drafts[yr] || S.drafts[yr-1];
+  if(db && db.teams){
+    const norm = normTeam(teamName);
+    const t = db.teams.find(t => normTeam(t.team) === norm);
+    if(t) return t.owner;
+  }
+  // Try current year draft
+  for(const y of CONFIG.DRAFT_YEARS){
+    const d = S.drafts[y];
+    if(!d) continue;
+    const norm = normTeam(teamName);
+    const t = (d.teams||[]).find(t => normTeam(t.team) === norm);
+    if(t) return t.owner;
+  }
+  return teamName;
+}
+
+function getCareerEarningsForYear(owner, yr){
+  const ce = S.careerEarnings.find(e => e.owner === owner);
+  if(!ce) return 0;
+  return ce.by_year[String(yr)] || 0;
+}
+
+// ─── TAB NAVIGATION ───────────────────────────────────────────────────────────
+function switchTab(tab){
+  S.tab = tab;
+  document.querySelectorAll('.nav-tab').forEach(el=>{
+    el.classList.toggle('active', el.textContent.toLowerCase().replace(/\s/g,'') === tab.replace(/\s/g,''));
+  });
+  // match by onclick
+  document.querySelectorAll('.nav-tab').forEach(el=>{
+    const fn = el.getAttribute('onclick')||'';
+    el.classList.toggle('active', fn.includes(`'${tab}'`));
+  });
+  document.querySelectorAll('.tab-panel').forEach(el=>{
+    el.classList.toggle('active', el.id === `tab-${tab}`);
+  });
+  // lazy render
+  if(tab==='overview') renderOverview();
+  else if(tab==='draftboard') renderDraftBoard(S.draftYear);
+  else if(tab==='draftresults') renderDraftResults();
+  else if(tab==='standings') renderStandings();
+  else if(tab==='keepers') renderKeepers();
+  else if(tab==='trades') renderTradesSetup();
+}
+
+// ─── OVERVIEW ─────────────────────────────────────────────────────────────────
+function renderOverview(){
+  renderBanner();
+  renderOvStats();
+  renderOvYearPills();
+  renderOvStandings();
+  renderOvTrades();
+  renderOvChamps();
+  renderCareerEarnings();
+}
+
+function renderBanner(){
+  const el = document.getElementById('banner-area');
+  const msg = S.usingDemo
+    ? `<div class="banner warn">Using demo data. Configure your Google Sheet to load live data.</div>`
+    : `<div class="banner">✓ Data loaded from data.js (${window.LIVE_DATA ? window.LIVE_DATA.updated || '' : ''})</div>`;
+  el.innerHTML = msg;
+}
+
+function renderOvStats(){
+  const el = document.getElementById('ov-stats');
+  const totalTrades = S.trades.length;
+  const totalYears = CONFIG.SEASONS.length;
+  // Count unique teams
+  const teamSet = new Set();
+  for(const yr of CONFIG.DRAFT_YEARS){
+    const d = S.drafts[yr];
+    if(d) (d.teams||[]).forEach(t=>teamSet.add(t.team));
+  }
+  // Current leader
+  const leader = (S.allSeasonStandings[S.ovYear]||{overall:[]}).overall[0];
+  const leaderHtml = leader
+    ? `<div class="stat-value">${esc(leader.Team)}</div><div class="stat-sub">${esc(leader.Owner)} · ${leader.total} pts</div>`
+    : `<div class="stat-value">—</div>`;
+
+  el.innerHTML = `
+    <div class="stat-card">
+      <div class="stat-label">Seasons Played</div>
+      <div class="stat-value">${totalYears}</div>
+      <div class="stat-sub">2021-22 through 2025-26</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Total Trades</div>
+      <div class="stat-value">${totalTrades}</div>
+      <div class="stat-sub">Across all seasons</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">${seasonLabels[S.ovYear]} Leader</div>
+      ${leaderHtml}
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">All-Time Earnings King</div>
+      ${renderCareerKing()}
+    </div>
+  `;
+}
+
+function renderCareerKing(){
+  const top = S.careerEarnings[0];
+  if(!top) return '<div class="stat-value">—</div>';
+  return `<div class="stat-value">${esc(top.owner.split(' ')[0])}</div><div class="stat-sub">${fmtMoney(top.total)} career</div>`;
+}
+
+function renderOvYearPills(){
+  const el = document.getElementById('ov-year-pills');
+  el.innerHTML = CONFIG.SEASONS.map(yr=>`
+    <button class="pill ${yr===S.ovYear?'active':''}" onclick="setOvYear(${yr})">${seasonLabels[yr]}</button>
+  `).join('');
+}
+
+function setOvYear(yr){
+  S.ovYear = yr;
+  renderOvYearPills();
+  renderOvStandings();
+}
+
+function renderOvStandings(){
+  const el = document.getElementById('ov-standings-table');
+  const data = (S.allSeasonStandings[S.ovYear]||{overall:[]}).overall;
+  if(!data.length){ el.innerHTML='<div class="empty-state">No standings data</div>'; return; }
+  el.innerHTML = `<table>
+    <thead><tr>
+      <th>#</th><th>Team</th><th>NFL</th><th>NBA</th><th>MLB</th><th>Total</th>
+    </tr></thead>
+    <tbody>
+    ${data.map((r,i)=>`<tr>
+      <td>${rankBadge(r.Rank)}</td>
+      <td>${teamChipHtml(r.Team, i)} <span class="text-muted text-sm">${esc(r.Owner)}</span></td>
+      <td>${r.nflPts??'—'}</td>
+      <td>${r.nbaPts??'—'}</td>
+      <td>${r.mlbPts??'—'}</td>
+      <td><strong>${r.total??'—'}</strong></td>
+    </tr>`).join('')}
+    </tbody>
+  </table>`;
+}
+
+function renderOvTrades(){
+  const el = document.getElementById('ov-trades');
+  const seasonOrder = {'2025-26':0,'2024-25':1,'2023-24':2,'2022-23':3,'2021-22':4};
+  const recent = [...S.trades]
+    .sort((a,b)=>{
+      const so=(seasonOrder[a.season]??99)-(seasonOrder[b.season]??99);
+      return so!==0 ? so : b.num-a.num;
+    }).slice(0,6);
+  if(!recent.length){ el.innerHTML='<div class="empty-state">No trades</div>'; return; }
+  el.innerHTML = recent.map(t=>`
+    <div class="trade-card" style="margin-bottom:8px">
+      <div class="trade-header">
+        <span class="trade-num">#${t.num}</span>
+        <span class="trade-date">${esc(t.date)}</span>
+        <span class="trade-season">${esc(t.season)}</span>
+        <span style="margin-left:auto">${stagHtml(t.sport)}</span>
+      </div>
+      <div class="trade-body" style="padding:10px 14px">
+        <div>
+          <div class="trade-owner">${esc(t.side_a.owner)}</div>
+          <div class="trade-team">${esc(t.side_a.team)}</div>
+          ${renderTradeSideItems(t.side_a)}
+        </div>
+        <div class="trade-arrow">⇄</div>
+        <div>
+          <div class="trade-owner">${esc(t.side_b.owner)}</div>
+          <div class="trade-team">${esc(t.side_b.team)}</div>
+          ${renderTradeSideItems(t.side_b)}
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderTradeSideItems(side){
+  let html = '';
+  if(side.players) side.players.split(/[,\n]/).map(s=>s.trim()).filter(Boolean).forEach(p=>{
+    html += `<div class="trade-item">${esc(p)}</div>`;
+  });
+  if(side.picks) side.picks.split(/[,\n]/).map(s=>s.trim()).filter(Boolean).forEach(p=>{
+    html += `<div class="trade-pick-item">📋 ${esc(p)}</div>`;
+  });
+  return html || '<div class="trade-item" style="color:var(--text-m)">—</div>';
+}
+
+function renderOvChamps(){
+  const el = document.getElementById('ov-champs');
+  const cards = S.allTimeChamps.filter(c=>c.year<=2026);
+  if(!cards.length){ el.innerHTML='<div class="empty-state">No champion data</div>'; return; }
+
+  const placeColors  = ['#f59e0b','#94a3b8','#f97316','var(--text-2)'];
+  const placeLabels  = ['🏆','2nd','3rd','4th'];
+
+  el.innerHTML = cards.map(c=>{
+    const top4 = ((S.allSeasonStandings[c.year]||{}).overall||[]).slice(0,4);
+
+    if(c.year===2026 || !c.overall){
+      const placesHtml = top4.map((r,i)=>`
+        <div class="champ-place-row">
+          <span class="champ-place-label" style="color:${placeColors[i]}">${placeLabels[i]}</span>
+          <span class="champ-place-team">${esc(r.Team)}</span>
+          <span class="champ-place-pts">${r.total??''} pts</span>
+        </div>`).join('');
+      return `<div class="in-progress">
+        <div class="champ-year">${c.label}</div>
+        <div class="champ-team" style="color:var(--accent);margin-bottom:8px">Season in Progress</div>
+        ${placesHtml || `<div class="champ-owner" style="color:var(--text-m)">2025-26 underway</div>`}
+        <div class="champ-badges" style="margin-top:8px">
+          ${c.nfl ? `<span class="champ-badge stag-nfl">NFL: ${esc(c.nfl.owner||'?')}</span>` : ''}
+          ${c.nba ? `<span class="champ-badge stag-nba">NBA: ${esc(c.nba.owner||'?')}</span>` : ''}
+          ${c.mlb ? `<span class="champ-badge stag-mlb">MLB: ${esc(c.mlb.owner||'?')}</span>` : ''}
+        </div>
+      </div>`;
+    }
+
+    const placesHtml = top4.map((r,i)=>`
+      <div class="champ-place-row" ${i===0?'style="margin-bottom:6px"':''}>
+        <span class="champ-place-label" style="color:${placeColors[i]};font-size:${i===0?'14px':'12px'}">${placeLabels[i]}</span>
+        <span class="champ-place-team" style="${i===0?'font-size:14px;font-weight:700':'font-size:12px'}">${esc(r.Team)}</span>
+        <span class="champ-place-pts">${r.total??''} pts</span>
+      </div>`).join('');
+
+    return `<div class="champ-card">
+      <div class="champ-year">${c.label}</div>
+      ${placesHtml}
+      <div class="champ-badges" style="margin-top:8px">
+        ${c.nfl ? `<span class="champ-badge stag-nfl">NFL: ${esc(c.nfl.owner||'?')}</span>` : ''}
+        ${c.nba ? `<span class="champ-badge stag-nba">NBA: ${esc(c.nba.owner||'?')}</span>` : ''}
+        ${c.mlb ? `<span class="champ-badge stag-mlb">MLB: ${esc(c.mlb.owner||'?')}</span>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderCareerEarnings(){
+  const el = document.getElementById('ov-career-earnings');
+  const data = S.careerEarnings.slice(0,12);
+  if(!data.length){ el.innerHTML='<div class="empty-state">No data</div>'; return; }
+  el.innerHTML = `<table>
+    <thead><tr><th>#</th><th>Owner</th><th>2021-22</th><th>2022-23</th><th>2023-24</th><th>2024-25</th><th>Total</th></tr></thead>
+    <tbody>
+    ${data.map((e,i)=>`<tr>
+      <td>${rankBadge(i+1)}</td>
+      <td><strong>${esc(e.owner)}</strong></td>
+      <td>${e.by_year['2022']?fmtMoney(e.by_year['2022']):'—'}</td>
+      <td>${e.by_year['2023']?fmtMoney(e.by_year['2023']):'—'}</td>
+      <td>${e.by_year['2024']?fmtMoney(e.by_year['2024']):'—'}</td>
+      <td>${e.by_year['2025']?fmtMoney(e.by_year['2025']):'—'}</td>
+      <td><strong style="color:var(--green)">${fmtMoney(e.total)}</strong></td>
+    </tr>`).join('')}
+    </tbody>
+  </table>`;
+}
+
+// ─── DRAFT BOARD ──────────────────────────────────────────────────────────────
+function renderDraftBoard(yr){
+  S.draftYear = yr;
+
+  // Year pills
+  const pillEl = document.getElementById('db-year-pills');
+  pillEl.innerHTML = CONFIG.DRAFT_YEARS.map(y=>`
+    <button class="pill ${y===yr?'active':''}" onclick="renderDraftBoard(${y})">${y}</button>
+  `).join('');
+
+  const draft = S.drafts[yr];
+  const wrap = document.getElementById('draft-board-wrap');
+  const kpWrap = document.getElementById('db-keepers-wrap');
+
+  if(!draft){ wrap.innerHTML='<div class="empty-state">No draft data for '+yr+'</div>'; kpWrap.innerHTML=''; return; }
+
+  const teams = draft.teams || [];
+  const picks = draft.picks || [];
+  const keepers = draft.keepers || [];
+  const supp = draft.supplemental || [];
+  const isFuture = draft.is_future;
+
+  // Build pick number map: [round][teamIdx] → pick num
+  // Picks are listed in snake order, so we compute globally
+  let pickCounter = 0;
+  const pickNums = {}; // round → [num per team]
+  for(const row of picks){
+    const rnd = row.round;
+    const dir = row.dir;
+    const teamOrder = dir === '<---'
+      ? [...Array(teams.length).keys()].reverse()
+      : [...Array(teams.length).keys()];
+    const nums = new Array(teams.length).fill(null);
+    for(const ti of teamOrder){
+      pickCounter++;
+      nums[ti] = pickCounter;
+    }
+    pickNums[rnd] = nums;
+  }
+
+  function getSportStyle(sport){
+    if(!sport) return '';
+    const c = {NFL:'var(--nfl)',NBA:'var(--nba)',MLB:'var(--mlb)',SUPP:'var(--text-m)'}[sport]||'var(--text-m)';
+    return `border-left:3px solid ${c};`;
+  }
+
+  // Header row
+  let html = `<table class="draft-grid"><thead><tr>
+    <th class="round-cell">Rnd</th>
+    ${teams.map((t,i)=>`<th style="color:${teamColor(i)}">${esc(t.team)}<br><span style="color:var(--text-m);font-size:10px">${esc(t.initials)}</span></th>`).join('')}
+  </tr></thead><tbody>`;
+
+  function splitName(name){
+    if(!name) return {first:'—',last:''};
+    const parts = (name||'').trim().split(/\s+/);
+    if(parts.length===1) return {first:parts[0],last:''};
+    return {first:parts[0], last:parts.slice(1).join(' ')};
+  }
+
+  function cellHtml(p, pickNum, teamName, isFut){
+    if(!p){
+      // Empty cell
+      return `<td class="pick-cell empty">
+        <div class="pick-num">#${pickNum||'?'}</div>
+        <div class="pick-future">${isFut?esc(teamName):''}</div>
+      </td>`;
+    }
+    if(p.is_traded && !p.player){
+      // Future traded pick — prominent styling
+      return `<td class="pick-cell pick-cell-traded" style="${getSportStyle(p.sport)}">
+        <div class="pick-num">#${pickNum||'?'}</div>
+        <div class="pick-owned-emph">🔄<br>${esc(p.owned_by||'TRADED')}</div>
+      </td>`;
+    }
+    const tradedLabel = p.traded_from ? `<div class="pick-traded">🔄 ${esc(p.traded_from)}</div>` : '';
+    const sportBorder = getSportStyle(p.sport);
+    if(isFut){
+      // Future board with player — shouldn't normally happen, but handle gracefully
+      const {first,last} = splitName(p.player);
+      return `<td class="pick-cell" style="${sportBorder}">
+        <div class="pick-num">#${pickNum||'?'}</div>
+        <div class="pick-name-first">${esc(first)}</div>
+        ${last?`<div class="pick-name-last">${esc(last)}</div>`:''}
+        ${tradedLabel}
+      </td>`;
+    }
+    // Past board — two-line name
+    const {first,last} = splitName(p.player);
+    return `<td class="pick-cell" style="${sportBorder}">
+      <div class="pick-num">#${pickNum||'?'}</div>
+      <div class="pick-name-first">${esc(first)}</div>
+      ${last?`<div class="pick-name-last">${esc(last)}</div>`:''}
+      ${tradedLabel}
+    </td>`;
+  }
+
+  // Regular picks
+  for(const row of picks){
+    const rnd = row.round;
+    const nums = pickNums[rnd] || [];
+    html += `<tr><td class="round-cell">${rnd}</td>`;
+    for(let ti=0; ti<teams.length; ti++){
+      const p = row.picks[ti] !== undefined ? row.picks[ti] : null;
+      html += cellHtml(p, nums[ti], teams[ti]?.team, isFuture);
+    }
+    html += '</tr>';
+  }
+
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+
+  // Keepers section
+  if(keepers.length){
+    kpWrap.style.display='block';
+    // Group keepers by sport
+    const bySport = {NFL:[],NBA:[],MLB:[]};
+    for(const row of keepers){
+      const sp = row.keeper_sport || 'NFL';
+      bySport[sp] = bySport[sp] || [];
+      bySport[sp].push(row);
+    }
+
+    let kHtml = `<div class="card-title">Keepers — ${yr}</div>`;
+    for(const [sport, rows] of Object.entries(bySport)){
+      if(!rows.length) continue;
+      kHtml += `<div class="keeper-section">
+        <h4>${sport} Keepers</h4>
+        <div class="draft-scroll"><table class="draft-grid keeper-grid"><thead><tr>
+          <th class="round-cell">Slot</th>
+          ${teams.map((t,i)=>`<th style="color:${teamColor(i)}">${esc(t.team)}<br><span style="color:var(--text-m);font-size:10px">${esc(t.initials)}</span></th>`).join('')}
+        </tr></thead><tbody>`;
+      for(const row of rows){
+        kHtml += `<tr><td class="round-cell">${row.keeper_num}</td>`;
+        for(let ti=0; ti<teams.length; ti++){
+          const p = row.picks[ti] !== undefined ? row.picks[ti] : null;
+          if(!p){
+            kHtml += `<td class="pick-cell empty"></td>`;
+          } else {
+            const traded = p.traded_from ? `<div class="pick-traded">🔄 ${esc(p.traded_from)}</div>` : '';
+            const playerName = p.player || '—';
+            const {first, last} = splitName(playerName);
+            kHtml += `<td class="pick-cell" style="${getSportStyle(p.sport)}">
+              <div class="pick-name-first">${esc(first)}</div>
+              ${last ? `<div class="pick-name-last">${esc(last)}</div>` : ''}
+              ${traded}
+            </td>`;
+          }
+        }
+        kHtml += '</tr>';
+      }
+      kHtml += '</tbody></table></div></div>';
+    }
+    kpWrap.innerHTML = kHtml;
+  } else {
+    kpWrap.style.display='none';
+  }
+}
+
+// ─── DRAFT RESULTS ─────────────────────────────────────────────────────────────
+function renderDraftResults(){
+  // Year pills
+  const pillEl = document.getElementById('dr-year-pills');
+  pillEl.innerHTML = CONFIG.DRAFT_YEARS.map(y=>`
+    <button class="pill ${y===S.resultsYear?'active':''}" onclick="setResultsYear(${y})">${y}</button>
+  `).join('');
+
+  document.getElementById('btn-seq').classList.toggle('active', S.resultsView==='seq');
+  document.getElementById('btn-team').classList.toggle('active', S.resultsView==='team');
+
+  const draft = S.drafts[S.resultsYear];
+  const el = document.getElementById('dr-content');
+  if(!draft){ el.innerHTML='<div class="empty-state">No draft data</div>'; return; }
+
+  const teams = draft.teams || [];
+  const picks = draft.picks || [];
+
+  // Flatten picks in order
+  let allPicks = [];
+  let globalPickNum = 0;
+  for(const row of picks){
+    const dir = row.dir;
+    const teamOrder = dir === '<---'
+      ? [...Array(teams.length).keys()].reverse()
+      : [...Array(teams.length).keys()];
+    for(const ti of teamOrder){
+      globalPickNum++;
+      const p = row.picks[ti];
+      if(!p) continue;
+      allPicks.push({
+        pickNum: globalPickNum,
+        round: row.round,
+        teamIndex: ti,
+        teamName: teams[ti]?.team || '?',
+        player: p.player,
+        sport: p.sport,
+        traded_from: p.traded_from,
+        is_future: draft.is_future && !p.player,
+        is_traded_away: !!(p.is_traded),
+        owned_by: p.owned_by,
+      });
+    }
+  }
+
+  if(S.resultsView === 'seq'){
+    renderResultsSeq(allPicks, teams, el);
+  } else {
+    renderResultsByTeam(allPicks, teams, el);
+  }
+}
+
+// Build initials → team index map from a teams array
+function buildInitMap(teams){
+  const m = {};
+  teams.forEach((t,i)=>{ if(t.initials) m[t.initials]=i; });
+  return m;
+}
+
+// Resolve actual drafter for a pick:
+//   traded_from = initials of the team that ACTUALLY DRAFTED (received the slot)
+//   column owner (p.teamIndex) is who the slot originally belonged to (traded it away)
+function resolvePickTeam(p, teams, initMap){
+  if(p.traded_from){
+    const drafterIdx = initMap[p.traded_from];
+    if(drafterIdx !== undefined){
+      return {
+        drafterIdx,
+        drafterName: teams[drafterIdx].team,
+        viaInitials: teams[p.teamIndex]?.initials || '',
+      };
+    }
+  }
+  // No trade — column owner drafted their own pick
+  return { drafterIdx: p.teamIndex, drafterName: p.teamName, viaInitials: null };
+}
+
+function renderResultsSeq(allPicks, teams, el){
+  if(!allPicks.length){ el.innerHTML='<div class="empty-state">No picks yet</div>'; return; }
+
+  const initMap = buildInitMap(teams);
+
+  // Group by round
+  const roundMap = new Map();
+  for(const p of allPicks){
+    const r = p.round ?? '?';
+    if(!roundMap.has(r)) roundMap.set(r, []);
+    roundMap.get(r).push(p);
+  }
+  const rounds = [...roundMap.entries()];
+
+  // Build groups of 3 rounds
+  let html = '';
+  for(let g=0; g<rounds.length; g+=3){
+    const group = rounds.slice(g, g+3);
+    html += `<div class="dr-round-group">`;
+    for(const [round, roundPicks] of group){
+      html += `<div class="dr-round-card">
+        <div class="dr-round-title">Round ${round}</div>`;
+      for(const p of roundPicks){
+        const cls = sportClass(p.sport);
+        const {drafterIdx, drafterName, viaInitials} = resolvePickTeam(p, teams, initMap);
+        const playerTxt = p.player
+          ? esc(p.player)
+          : `<span style="color:var(--text-m);font-style:italic">TBD</span>`;
+        // Future pick traded away (2026 board)
+        const tradedAway = p.is_traded_away
+          ? `<span class="pick-row-trade-icon" title="Traded to ${esc(p.owned_by||'?')}">→${esc(p.owned_by||'')}</span>`
+          : '';
+        // Via notation when pick slot came from another team
+        const tradeIcon = viaInitials
+          ? `<span class="pick-row-trade-icon" style="color:#f59e0b">🔄 via ${esc(viaInitials)}</span>`
+          : tradedAway;
+        html += `<div class="pick-row ${cls}">
+          <div class="pick-row-num">${p.pickNum}</div>
+          <span class="pick-row-player">${playerTxt}</span>
+          ${stagHtml(p.sport)}
+          <span style="font-size:11px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px">${teamChipHtml(drafterName, drafterIdx, 7)}</span>
+          ${tradeIcon}
+        </div>`;
+      }
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+
+  el.innerHTML = html || '<div class="empty-state">No picks</div>';
+}
+
+function renderResultsByTeam(allPicks, teams, el){
+  if(!teams.length){ el.innerHTML='<div class="empty-state">No teams</div>'; return; }
+
+  const initMap = buildInitMap(teams);
+
+  // Build per-team arrays of picks they ACTUALLY DRAFTED
+  // traded_from = initials of the actual drafter (they received the slot from the column owner)
+  // No traded_from = column owner drafted their own pick
+  const teamPickLists = teams.map(() => []);
+
+  for(const p of allPicks){
+    if(!p.player) continue; // skip future/empty picks
+    const {drafterIdx, viaInitials} = resolvePickTeam(p, teams, initMap);
+    teamPickLists[drafterIdx].push({...p, viaInitials});
+  }
+
+  let html = '<div class="dr-teams-grid">';
+  for(let ti=0; ti<teams.length; ti++){
+    const t = teams[ti];
+    const teamPicks = teamPickLists[ti].sort((a,b)=>a.pickNum-b.pickNum);
+    html += `<div class="team-section">
+      <div class="team-section-header">
+        <span class="team-dot" style="width:10px;height:10px;border-radius:50%;background:${teamColor(ti)}"></span>
+        <span class="team-section-name">${esc(t.team)}</span>
+        <span class="team-section-owner">${esc(t.owner)}</span>
+        <span class="text-muted text-sm" style="margin-left:auto">${teamPicks.length} picks</span>
+      </div>
+      <div class="card">`;
+
+    if(!teamPicks.length){
+      html += '<div class="empty-state" style="padding:16px">No picks yet</div>';
+    } else {
+      for(const p of teamPicks){
+        const cls = sportClass(p.sport);
+        // viaInitials = original slot owner's initials (they traded the slot to this team)
+        const viaHtml = p.viaInitials
+          ? `<span style="color:#f59e0b;font-size:11px;white-space:nowrap;flex-shrink:0">🔄 via ${esc(p.viaInitials)}</span>`
+          : '';
+        html += `<div class="pick-row ${cls}">
+          <div class="pick-row-num">${p.pickNum}</div>
+          <span class="pick-row-player">${esc(p.player)}</span>
+          ${stagHtml(p.sport)}
+          ${viaHtml}
+        </div>`;
+      }
+    }
+    html += '</div></div>';
+  }
+  html += '</div>';
+  el.innerHTML = html || '<div class="empty-state">No data</div>';
+}
+
+function setResultsYear(yr){
+  S.resultsYear = yr;
+  renderDraftResults();
+}
+
+function setResultsView(v){
+  S.resultsView = v;
+  renderDraftResults();
+}
+
+// ─── STANDINGS ────────────────────────────────────────────────────────────────
+function renderStandings(){
+  buildStandingsFromSD(S.stdYear);
+
+  // Year pills
+  const pillEl = document.getElementById('std-year-pills');
+  const allTimeOption = `<button class="pill ${S.stdYear==='alltime'?'active':''}" onclick="setStdYear('alltime')">All-Time</button>`;
+  pillEl.innerHTML = CONFIG.SEASONS.map(yr=>`
+    <button class="pill ${yr===S.stdYear?'active':''}" onclick="setStdYear(${yr})">${seasonLabels[yr]}</button>
+  `).join('') + allTimeOption;
+
+  // Sport tabs
+  document.querySelectorAll('.std-tab').forEach(el=>{
+    const fn = el.getAttribute('onclick')||'';
+    const match = fn.match(/'(\w+)'/);
+    if(match) el.classList.toggle('active', match[1]===S.standingsView);
+  });
+
+  renderStandingsTable();
+  renderEarningsTable();
+  renderStandingsAnalysis();
+}
+
+function setStdYear(yr){
+  S.stdYear = yr;
+  if(yr !== 'alltime') buildStandingsFromSD(yr);
+  renderStandings();
+}
+
+function setStdView(v){
+  S.standingsView = v;
+  renderStandings();
+}
+
+function renderStandingsTable(){
+  const el = document.getElementById('std-table');
+
+  if(S.stdYear === 'alltime'){
+    const ld = window.LIVE_DATA;
+    const cum = ld && ld.standingsData && ld.standingsData.cumulative;
+    if(!cum || !cum.length){ el.innerHTML='<div class="empty-state">No all-time data</div>'; return; }
+    el.innerHTML = `<table>
+      <thead><tr><th>#</th><th>Team</th><th>NFL</th><th>NBA</th><th>MLB</th><th>Total</th></tr></thead>
+      <tbody>
+      ${cum.map((r,i)=>`<tr>
+        <td>${rankBadge(r.rank)}</td>
+        <td>${teamChipHtml(r.team, i)}</td>
+        <td>${r.nfl_pts??'—'}</td>
+        <td>${r.nba_pts??'—'}</td>
+        <td>${r.mlb_pts??'—'}</td>
+        <td><strong>${r.total_pts??'—'}</strong></td>
+      </tr>`).join('')}
+      </tbody>
+    </table>`;
+    return;
+  }
+
+  const view = S.standingsView;
+  const data = S.standings[view] || [];
+  if(!data.length){ el.innerHTML='<div class="empty-state">No standings</div>'; return; }
+
+  const colHeader = view==='overall'
+    ? '<th>NFL</th><th>NBA</th><th>MLB</th><th>Total</th><th>Earnings</th>'
+    : `<th>${view.toUpperCase()} Pts</th>`;
+
+  el.innerHTML = `<table>
+    <thead><tr><th>#</th><th>Team</th><th>Owner</th>${colHeader}</tr></thead>
+    <tbody>
+    ${data.map((r,i)=>`<tr>
+      <td>${rankBadge(r.Rank)}</td>
+      <td>${teamChipHtml(r.Team, i)}</td>
+      <td class="text-muted">${esc(r.Owner)}</td>
+      ${view==='overall'
+        ? `<td>${r.nflPts??'—'}</td><td>${r.nbaPts??'—'}</td><td>${r.mlbPts??'—'}</td><td><strong>${r.total??'—'}</strong></td><td style="color:var(--green)">${r.earnings?fmtMoney(r.earnings):''}</td>`
+        : `<td><strong>${view==='nfl'?r.nflPts:view==='nba'?r.nbaPts:r.mlbPts}</strong></td>`
+      }
+    </tr>`).join('')}
+    </tbody>
+  </table>`;
+}
+
+function renderEarningsTable(){
+  const el = document.getElementById('std-earnings');
+
+  if(S.stdYear==='alltime'){
+    // Show career earnings summary
+    const data = S.careerEarnings;
+    if(!data.length){ el.innerHTML='<div class="empty-state">No data</div>'; return; }
+    el.innerHTML = data.slice(0,8).map(e=>`
+      <div class="earnings-row">
+        <div class="earnings-winner"><strong>${esc(e.owner)}</strong></div>
+        <div class="earnings-amount">${fmtMoney(e.total)}</div>
+      </div>
+    `).join('');
+    return;
+  }
+
+  const sd = S.liveSeasonsData && S.liveSeasonsData[S.stdYear];
+  if(!sd){ el.innerHTML='<div class="empty-state">No earnings data</div>'; return; }
+
+  const earnings = sd.earnings || [];
+
+  // Group by sport (null = overall)
+  const groups = {overall:[], NFL:[], NBA:[], MLB:[]};
+  for(const e of earnings){
+    const g = e.sport || 'overall';
+    if(!groups[g]) groups[g]=[];
+    groups[g].push(e);
+  }
+
+  let html = '';
+  const groupOrder = ['overall','NFL','NBA','MLB'];
+  const groupLabels = {overall:'Overall',NFL:'NFL',NBA:'NBA',MLB:'MLB'};
+  for(const g of groupOrder){
+    const rows = groups[g];
+    if(!rows || !rows.length) continue;
+    html += `<div class="earnings-section">
+      <div class="earnings-section-title">${groupLabels[g]}</div>
+      ${rows.map(e=>`<div class="earnings-row">
+        <div class="earnings-place">${esc(e.place)}</div>
+        <div class="earnings-winner">
+          ${e.winner
+            ? esc(e.winner)
+            : '<span class="earnings-pending">Pending</span>'}
+        </div>
+        <div class="earnings-amount">${fmtMoney(e.amount)}</div>
+      </div>`).join('')}
+    </div>`;
+  }
+
+  el.innerHTML = html || '<div class="empty-state">No earnings</div>';
+}
+
+function renderStandingsAnalysis(){
+  const el = document.getElementById('std-analysis');
+  if(S.stdYear==='alltime'){
+    const top = S.careerEarnings[0];
+    el.innerHTML = top ? `
+      <div class="analysis-item">
+        <div class="analysis-label">All-Time Earnings Leader</div>
+        <div class="analysis-val">${esc(top.owner)} — ${fmtMoney(top.total)}</div>
+      </div>
+      <div class="analysis-item">
+        <div class="analysis-label">Most Seasons in Top 3</div>
+        <div class="analysis-val">${computeMostTop3()}</div>
+      </div>
+    ` : '';
+    return;
+  }
+
+  const data = S.standings.overall;
+  if(!data.length){ el.innerHTML=''; return; }
+  const leader = data[0];
+  const nflLeader = [...data].sort((a,b)=>(b.nflPts||0)-(a.nflPts||0))[0];
+  const nbaLeader = [...data].sort((a,b)=>(b.nbaPts||0)-(a.nbaPts||0))[0];
+  const mlbLeader = [...data].sort((a,b)=>(b.mlbPts||0)-(a.mlbPts||0))[0];
+
+  el.innerHTML = `
+    <div class="analysis-item">
+      <div class="analysis-label">Overall Leader</div>
+      <div class="analysis-val">${esc(leader.Team)} (${leader.total??'—'} pts)</div>
+    </div>
+    <div class="analysis-item">
+      <div class="analysis-label">NFL Leader</div>
+      <div class="analysis-val">${esc(nflLeader?.Team||'—')} (${nflLeader?.nflPts??'—'} pts)</div>
+    </div>
+    <div class="analysis-item">
+      <div class="analysis-label">NBA Leader</div>
+      <div class="analysis-val">${esc(nbaLeader?.Team||'—')} (${nbaLeader?.nbaPts??'—'} pts)</div>
+    </div>
+    <div class="analysis-item">
+      <div class="analysis-label">MLB Leader</div>
+      <div class="analysis-val">${esc(mlbLeader?.Team||'—')} (${mlbLeader?.mlbPts??'—'} pts)</div>
+    </div>
+    <div class="analysis-item">
+      <div class="analysis-label">Teams</div>
+      <div class="analysis-val">${data.length}</div>
+    </div>
+  `;
+}
+
+function computeMostTop3(){
+  const wins = {};
+  for(const yr of [2022,2023,2024,2025]){
+    const s = S.allSeasonStandings[yr];
+    if(!s) continue;
+    s.overall.slice(0,3).forEach(r=>{ wins[r.Owner]=(wins[r.Owner]||0)+1; });
+  }
+  const sorted = Object.entries(wins).sort((a,b)=>b[1]-a[1]);
+  return sorted.length ? `${sorted[0][0]} (${sorted[0][1]}x)` : '—';
+}
+
+// ─── KEEPERS ──────────────────────────────────────────────────────────────────
+function renderKeepers(){
+  // Update view pills
+  document.querySelectorAll('#kp-view-pills .pill').forEach(el=>{
+    const fn = el.getAttribute('onclick')||'';
+    el.classList.toggle('active', fn.includes(`'${S.kpView}'`));
+  });
+
+  const yearPills = document.getElementById('kp-year-pills');
+  if(S.kpView==='year'){
+    yearPills.style.display='flex';
+    yearPills.innerHTML = [2025,2024,2023,2022].map(y=>`
+      <button class="pill ${y===S.kpYear?'active':''}" onclick="setKpYear(${y})">${seasonLabels[y]}</button>
+    `).join('');
+  } else {
+    yearPills.style.display='none';
+  }
+
+  if(S.kpView==='alltime'){
+    renderKeepersAllTime();
+  } else {
+    renderKeepersYear(S.kpYear);
+  }
+}
+
+function setKpView(v){
+  S.kpView = v;
+  renderKeepers();
+}
+
+function setKpYear(yr){
+  S.kpYear = yr;
+  renderKeepers();
+}
+
+function renderKeepersAllTime(){
+  const el = document.getElementById('kp-content');
+  // Collect all teams across keeper years
+  const yearCols = [2025,2024,2023,2022];
+  // Get union of all teams (by owner)
+  const teamSet = new Map(); // team → {team, owner, idx}
+  for(const yr of CONFIG.DRAFT_YEARS){
+    const d = S.drafts[yr];
+    if(!d) continue;
+    for(let i=0; i<(d.teams||[]).length; i++){
+      const t = d.teams[i];
+      const norm = normTeam(t.team);
+      if(!teamSet.has(norm)) teamSet.set(norm, {...t, colorIdx: i});
+    }
+  }
+
+  // For each team, for each year, collect keepers
+  function getKeepersForTeam(teamName, yr){
+    const d = S.drafts[yr];
+    if(!d) return [];
+    const teams = d.teams||[];
+    const ti = teams.findIndex(t=>normTeam(t.team)===normTeam(teamName));
+    if(ti<0) return [];
+    const keepers = d.keepers||[];
+    const result = [];
+    for(const row of keepers){
+      const p = row.picks[ti];
+      if(p && p.player){
+        result.push({ player: p.player, sport: p.sport, traded_from: p.traded_from });
+      }
+    }
+    return result;
+  }
+
+  const teams = Array.from(teamSet.values());
+
+  let html = `<div class="keepers-grid"><table class="keepers-table"><thead><tr>
+    <th style="position:sticky;left:0;background:var(--surface);z-index:3">Team</th>
+    ${yearCols.map(yr=>`<th>${seasonLabels[yr]}</th>`).join('')}
+  </tr></thead><tbody>`;
+
+  for(const t of teams){
+    html += `<tr>
+      <td style="position:sticky;left:0;background:var(--card);z-index:2;min-width:130px">
+        <div style="color:${teamColor(t.colorIdx)};font-weight:700">${esc(t.team)}</div>
+        <div style="color:var(--text-2);font-size:11px">${esc(t.owner)}</div>
+      </td>`;
+    for(const yr of yearCols){
+      const kps = getKeepersForTeam(t.team, yr);
+      if(!kps.length){
+        html += `<td><span style="color:var(--text-m);font-size:11px">—</span></td>`;
+      } else {
+        html += `<td>${kps.map(k=>`
+          <div class="keeper-player">
+            <span class="${sportClass(k.sport)}" style="padding-left:5px;border-left-width:2px">${esc(k.player)}</span>
+            ${k.traded_from ? `<span class="keeper-via">via ${esc(k.traded_from)}</span>` : ''}
+          </div>
+        `).join('')}</td>`;
+      }
+    }
+    html += '</tr>';
+  }
+
+  html += '</tbody></table></div>';
+  el.innerHTML = html;
+}
+
+function renderKeepersYear(yr){
+  const el = document.getElementById('kp-content');
+  const d = S.drafts[yr];
+  if(!d){ el.innerHTML='<div class="empty-state">No keeper data for '+yr+'</div>'; return; }
+
+  const teams = d.teams||[];
+  const keepers = d.keepers||[];
+
+  const sportGroups = {NFL:[],NBA:[],MLB:[]};
+  for(const row of keepers){
+    const sp = row.keeper_sport||'NFL';
+    if(!sportGroups[sp]) sportGroups[sp]=[];
+    sportGroups[sp].push(row);
+  }
+
+  let html = '';
+  for(const [sport, rows] of Object.entries(sportGroups)){
+    if(!rows.length) continue;
+    const cls = sport==='NFL'?'stag-nfl':sport==='NBA'?'stag-nba':'stag-mlb';
+    html += `<div class="section-gap"><div class="card-title">${sport} Keepers</div>
+      <div class="grid-3">`;
+    for(let ti=0; ti<teams.length; ti++){
+      const t = teams[ti];
+      const tPicks = rows.map(row=>row.picks[ti]).filter(Boolean);
+      html += `<div class="card">
+        <div style="color:${teamColor(ti)};font-weight:700;margin-bottom:4px">${esc(t.team)}</div>
+        <div style="color:var(--text-2);font-size:11px;margin-bottom:8px">${esc(t.owner)}</div>
+        ${tPicks.map(p=>`<div class="keeper-player">
+          <span class="${sportClass(p.sport)}" style="padding-left:5px;border-left-width:2px">${esc(p.player)}</span>
+          ${p.traded_from ? `<span class="keeper-via"> via ${esc(p.traded_from)}</span>` : ''}
+        </div>`).join('')}
+        ${!tPicks.length ? '<div style="color:var(--text-m);font-size:11px">No keepers</div>' : ''}
+      </div>`;
+    }
+    html += '</div></div>';
+  }
+
+  el.innerHTML = html || '<div class="empty-state">No keepers</div>';
+}
+
+// ─── TRADES ───────────────────────────────────────────────────────────────────
+function renderTradesSetup(){
+  // Year pills
+  const seasons = ['all','2025-26','2024-25','2023-24','2022-23','2021-22'];
+  const pillEl = document.getElementById('tr-year-pills');
+  pillEl.innerHTML = seasons.map(s=>`
+    <button class="pill ${s===S.trYear?'active':''}" onclick="setTrYear('${s}')">${s==='all'?'All Seasons':s}</button>
+  `).join('');
+
+  // Sport pills active state
+  document.querySelectorAll('#tr-sport-pills .pill').forEach(el=>{
+    const fn = el.getAttribute('onclick')||'';
+    const m = fn.match(/'([^']+)'/);
+    if(m) el.classList.toggle('active', m[1]===S.trSport);
+  });
+
+  filterTrades();
+  renderTradersChart();
+}
+
+function setTrYear(yr){
+  S.trYear = yr;
+  document.querySelectorAll('#tr-year-pills .pill').forEach(el=>{
+    const fn = el.getAttribute('onclick')||'';
+    el.classList.toggle('active', fn.includes(`'${yr}'`));
+  });
+  filterTrades();
+  renderTradersChart();
+}
+
+function setTrSport(sp){
+  S.trSport = sp;
+  document.querySelectorAll('#tr-sport-pills .pill').forEach(el=>{
+    const fn = el.getAttribute('onclick')||'';
+    const m = fn.match(/'([^']+)'/);
+    if(m) el.classList.toggle('active', m[1]===sp);
+  });
+  filterTrades();
+}
+
+const TR_SEASON_ORDER = {'2025-26':0,'2024-25':1,'2023-24':2,'2022-23':3,'2021-22':4};
+
+function filterTrades(){
+  const search = (document.getElementById('tr-search').value||'').toLowerCase();
+  const yr = S.trYear;
+  const sp = S.trSport;
+
+  S.filteredTrades = S.trades.filter(t=>{
+    if(yr!=='all' && t.season!==yr) return false;
+    if(sp!=='all' && t.sport!==sp) return false;
+    if(search){
+      const haystack = [
+        t.side_a.owner, t.side_a.team, t.side_a.players, t.side_a.picks,
+        t.side_b.owner, t.side_b.team, t.side_b.players, t.side_b.picks,
+        t.context
+      ].join(' ').toLowerCase();
+      if(!haystack.includes(search)) return false;
+    }
+    return true;
+  });
+
+  // Sort: newest season first, highest trade# first within season
+  S.filteredTrades.sort((a,b)=>{
+    const so=(TR_SEASON_ORDER[a.season]??99)-(TR_SEASON_ORDER[b.season]??99);
+    return so!==0 ? so : b.num-a.num;
+  });
+
+  renderTradesTable();
+}
+
+function renderTradesTable(){
+  const el = document.getElementById('tr-list');
+  const countEl = document.getElementById('tr-count');
+  const trades = S.filteredTrades;
+  countEl.textContent = `${trades.length} trade${trades.length!==1?'s':''} found`;
+
+  if(!trades.length){ el.innerHTML='<div class="empty-state">No trades match filters</div>'; return; }
+
+  el.innerHTML = trades.map(t=>`
+    <div class="trade-card">
+      <div class="trade-header">
+        <span class="trade-num">Trade #${t.num}</span>
+        <span class="trade-date">${esc(t.date)}</span>
+        <span class="trade-season">${esc(t.season)}</span>
+        ${t.context ? `<span class="trade-season text-muted">${esc(t.context)}</span>` : ''}
+        <span style="margin-left:auto">${stagHtml(t.sport)}</span>
+      </div>
+      <div class="trade-body">
+        <div class="trade-side">
+          <div class="trade-owner">${esc(t.side_a.owner)}</div>
+          <div class="trade-team">${esc(t.side_a.team)}</div>
+          <div class="trade-items">${renderTradeSideItems(t.side_a)}</div>
+        </div>
+        <div class="trade-arrow">⇄</div>
+        <div class="trade-side">
+          <div class="trade-owner">${esc(t.side_b.owner)}</div>
+          <div class="trade-team">${esc(t.side_b.team)}</div>
+          <div class="trade-items">${renderTradeSideItems(t.side_b)}</div>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderTradersChart(){
+  // Count trades per owner — respect year filter
+  const chartTrades = S.trYear==='all'
+    ? S.trades
+    : S.trades.filter(t=>t.season===S.trYear);
+
+  const counts = {};
+  for(const t of chartTrades){
+    counts[t.side_a.owner] = (counts[t.side_a.owner]||0)+1;
+    counts[t.side_b.owner] = (counts[t.side_b.owner]||0)+1;
+  }
+  const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  const labels = sorted.map(([o])=>o.split(' ')[0]);
+  const values = sorted.map(([,n])=>n);
+
+  // Update chart title
+  const titleEl = document.getElementById('traders-chart-title');
+  if(titleEl) titleEl.textContent = S.trYear==='all'
+    ? 'Most Active Traders — All Seasons'
+    : `Most Active Traders — ${S.trYear}`;
+
+  const ctx = document.getElementById('traders-chart');
+  if(!ctx) return;
+
+  if(S.charts.traders) S.charts.traders.destroy();
+  S.charts.traders = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets:[{
+        data: values,
+        backgroundColor: TEAM_COLORS.slice(0, labels.length),
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#94a3b8', font:{size:11} }, grid: { color: '#1e2f45' } },
+        y: { ticks: { color: '#94a3b8', font:{size:11} }, grid: { color: '#1e2f45' }, beginAtZero: true }
+      }
+    }
+  });
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+function init(){
+  const ok = loadLiveData();
+  if(!ok){
+    S.usingDemo = true;
+  }
+
+  // Pre-build all season standings
+  for(const yr of CONFIG.SEASONS){
+    if(S.liveSeasonsData && S.liveSeasonsData[yr]){
+      S.allSeasonStandings[yr] = buildStandingsObj(yr);
+    }
+  }
+
+  // Set default years
+  S.ovYear = 2026;
+  S.stdYear = 2026;
+  S.draftYear = 2026;
+  S.resultsYear = 2026;
+  S.kpYear = 2025;
+
+  buildStandingsFromSD(S.stdYear);
+
+  // Hide loading screen
+  document.getElementById('loading').style.display='none';
+
+  // Render default tab
+  renderOverview();
+}
+
+// Wait for DOM + data.js
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
+</script>
+</body>
+</html>
