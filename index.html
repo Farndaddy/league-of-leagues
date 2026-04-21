@@ -239,6 +239,106 @@
   .dr-teams-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
   @media (max-width: 1000px) { .dr-teams-grid { grid-template-columns: 1fr 1fr; } }
   @media (max-width: 600px)  { .dr-teams-grid { grid-template-columns: 1fr; } }
+  /* ══════════════════════════════════════════════════════════════════
+     MOBILE-FIRST  @media (max-width: 640px)
+     ══════════════════════════════════════════════════════════════════ */
+  @media (max-width: 640px) {
+    body { font-size: 15px; }
+    .page { padding: 12px 10px; }
+
+    /* Nav - scrollable tabs */
+    .nav-inner { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; flex-wrap: nowrap; gap: 2px; padding: 0 10px; height: auto; min-height: 52px; }
+    .nav-inner::-webkit-scrollbar { display: none; }
+    .nav-logo { font-size: 14px; margin-right: 8px; flex-shrink: 0; }
+    .nav-tab { padding: 8px 12px; font-size: 12px; flex-shrink: 0; min-height: 44px; display: flex; align-items: center; }
+
+    /* Pills - bigger touch targets */
+    .pill { padding: 8px 14px; font-size: 13px; min-height: 36px; }
+    .pills { gap: 8px; }
+
+    /* Cards */
+    .card { padding: 12px; border-radius: 8px; }
+    .card-title { font-size: 12px; }
+
+    /* Stat cards - 2 per row on mobile */
+    .grid-4 { grid-template-columns: 1fr 1fr !important; gap: 8px; }
+    .stat-value { font-size: 20px; }
+
+    /* Full width grids */
+    .grid-2, .grid-3 { grid-template-columns: 1fr !important; }
+
+    /* Draft board - ensure horizontal scroll works */
+    .draft-scroll { -webkit-overflow-scrolling: touch; }
+
+    /* Trade body - stack on mobile */
+    .trade-body { grid-template-columns: 1fr !important; gap: 8px; }
+    .trade-arrow { display: none; }
+    .trade-side:first-child::after { content: '\21D5 traded with'; display: block; font-size: 11px; color: var(--text-m); margin-top: 6px; }
+
+    /* Standings tabs - scrollable */
+    .standings-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap; scrollbar-width: none; padding-bottom: 4px; }
+    .standings-tabs::-webkit-scrollbar { display: none; }
+    .std-tab { flex-shrink: 0; min-height: 36px; padding: 6px 14px; }
+
+    /* Results toggle */
+    .results-toggle { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .results-toggle::-webkit-scrollbar { display: none; }
+    .toggle-btn { flex-shrink: 0; min-height: 36px; }
+
+    /* Trade filters */
+    .trade-filters { flex-direction: column; }
+    .trade-search { max-width: 100%; width: 100%; }
+
+    /* Picks - make rows easier to read */
+    .pick-row { padding: 8px 10px; gap: 6px; }
+    .pick-row-player { font-size: 14px; }
+
+    /* Draft results 3-col to 1-col on mobile */
+    .dr-round-group { grid-template-columns: 1fr !important; }
+    .dr-teams-grid { grid-template-columns: 1fr !important; }
+
+    /* Keepers table */
+    .keepers-grid { -webkit-overflow-scrolling: touch; }
+
+    /* Chart wrap - shorter on mobile */
+    .chart-wrap { height: 220px; }
+
+    /* Section gaps */
+    .section-gap { margin-top: 14px; }
+
+    /* Table font */
+    table { font-size: 12px; }
+    th { padding: 6px 8px; font-size: 10px; }
+    td { padding: 7px 8px; }
+
+    /* Flex-between - allow wrap */
+    .flex-between { flex-wrap: wrap; gap: 8px; }
+
+    /* Draft board header - stack title above pills */
+    #tab-draftboard .flex-between { flex-direction: column; align-items: flex-start; }
+    #tab-draftresults .flex-between { flex-direction: column; align-items: flex-start; }
+    #tab-standings .flex-between { flex-direction: column; align-items: flex-start; }
+
+    /* Year pills - horizontal scroll on mobile */
+    #db-year-pills { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; max-width: 100%; }
+    #db-year-pills::-webkit-scrollbar { display: none; }
+    #dr-year-pills { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; max-width: 100%; }
+    #dr-year-pills::-webkit-scrollbar { display: none; }
+    #std-year-pills { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; max-width: 100%; }
+    #std-year-pills::-webkit-scrollbar { display: none; }
+    #ov-year-pills { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; max-width: 100%; margin-bottom: 0; }
+    #ov-year-pills::-webkit-scrollbar { display: none; }
+    #tr-year-pills { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; max-width: 100%; }
+    #tr-year-pills::-webkit-scrollbar { display: none; }
+    #kp-year-pills { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; max-width: 100%; }
+    #kp-year-pills::-webkit-scrollbar { display: none; }
+
+    /* Trades tab - grid-2 becomes single col */
+    #tab-trades .grid-2 { grid-template-columns: 1fr !important; }
+
+    /* Overview stat cards order */
+    #ov-stats { order: 1; }
+  }
 </style>
 </head>
 <body>
@@ -497,7 +597,7 @@ function loadLiveData(){
 
     // Build allSeasonStandings for all years
     for(const yr of CONFIG.SEASONS){
-      if(S.liveSeasonsData && S.liveSeasonsData[yr]){
+      if(S.liveSeasonsData[yr]){
         S.allSeasonStandings[yr] = buildStandingsObj(yr);
       }
     }
@@ -513,7 +613,7 @@ function loadLiveData(){
 }
 
 function buildStandingsObj(yr){
-  const sd = (S.liveSeasonsData || {})[yr];
+  const sd = S.liveSeasonsData[yr];
   if(!sd) return {overall:[],nfl:[],nba:[],mlb:[]};
   const rows = sd.standings || [];
   const toRow = (r) => {
