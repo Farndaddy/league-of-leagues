@@ -108,9 +108,9 @@
   .stat-sub { font-size: 12px; color: var(--text-2); }
 
   /* DRAFT BOARD */
-  .draft-scroll { overflow-x: auto; margin-top: 12px; }
+  .draft-scroll { overflow-x: auto; overflow-y: auto; max-height: calc(100vh - 160px); margin-top: 12px; -webkit-overflow-scrolling: touch; }
   .draft-grid { border-collapse: separate; border-spacing: 2px; table-layout: fixed; }
-  .draft-grid th { background: var(--surface); border: none; padding: 6px 8px; font-size: 11px; width: 100px; min-width: 100px; max-width: 100px; white-space: normal; word-break: break-word; vertical-align: top; }
+  .draft-grid th { background: var(--surface); border: none; padding: 6px 8px; font-size: 11px; width: 100px; min-width: 100px; max-width: 100px; white-space: normal; word-break: break-word; vertical-align: top; position: sticky; top: 0; z-index: 5; }
   .draft-grid .round-cell { background: var(--surface); font-size: 11px; color: var(--text-2); font-weight: 700; padding: 4px 8px; text-align: center; position: sticky; left: 0; z-index: 4; width: 40px; min-width: 40px; max-width: 40px; }
   .pick-cell { background: var(--card); border-radius: 4px; padding: 4px 6px; font-size: 11px; width: 100px; min-width: 100px; max-width: 100px; vertical-align: top; overflow: hidden; }
   .pick-cell.empty { opacity: .3; }
@@ -184,6 +184,11 @@
 
   /* CHART */
   .chart-wrap { position: relative; height: 280px; }
+
+  /* TRADES LAYOUT — chart left, list right on desktop */
+  .tr-layout { display: grid; grid-template-columns: 380px 1fr; gap: 16px; align-items: start; }
+  .tr-chart-panel { position: sticky; top: 68px; }
+  @media (max-width: 900px) { .tr-layout { grid-template-columns: 1fr; } .tr-chart-panel { position: static; } }
 
   /* ANALYSIS CARD */
   .analysis-item { padding: 8px 0; border-bottom: 1px solid #1a2840; display: flex; gap: 12px; align-items: baseline; }
@@ -363,7 +368,6 @@
 <div class="page">
   <!-- OVERVIEW -->
   <div id="tab-overview" class="tab-panel active">
-    <div id="banner-area"></div>
     <div id="ov-stats" class="grid-4 mb-16"></div>
     <div class="grid-2">
       <div>
@@ -492,16 +496,17 @@
       </div>
     </div>
     <div id="tr-count" class="mb-16 text-sm text-muted"></div>
-    <div class="grid-2 mb-16">
-      <div id="tr-list"></div>
-      <div>
-        <div class="card">
-          <div class="card-title" id="traders-chart-title">Most Active Traders</div>
-          <div class="chart-wrap"><canvas id="traders-chart"></canvas></div>
-        </div>
+    <div class="tr-layout mb-16">
+      <div class="card tr-chart-panel">
+        <div class="card-title" id="traders-chart-title">Most Active Traders</div>
+        <div class="chart-wrap"><canvas id="traders-chart"></canvas></div>
       </div>
+      <div id="tr-list" class="tr-list-panel"></div>
     </div>
   </div>
+
+  <!-- BOTTOM BANNER -->
+  <div id="banner-area" style="margin-top:20px"></div>
 </div>
 
 <script src="data.js"></script>
@@ -1529,7 +1534,12 @@ function renderKeepersAllTime(){
     return result;
   }
 
-  const teams = Array.from(teamSet.values());
+  const EXCLUDED_KEEPER_TEAMS = ['blitz zone adam','house of quinn','moviepoopshoot.com'];
+  const teams = Array.from(teamSet.values()).filter(t => {
+    if(EXCLUDED_KEEPER_TEAMS.includes(t.team.toLowerCase())) return false;
+    // also exclude teams with zero keepers across all years
+    return yearCols.some(yr => getKeepersForTeam(t.team, yr).length > 0);
+  });
 
   let html = `<div class="keepers-grid"><table class="keepers-table"><thead><tr>
     <th style="position:sticky;left:0;background:var(--surface);z-index:3">Team</th>
@@ -1567,7 +1577,8 @@ function renderKeepersYear(yr){
   const d = S.drafts[yr];
   if(!d){ el.innerHTML='<div class="empty-state">No keeper data for '+yr+'</div>'; return; }
 
-  const teams = d.teams||[];
+  const EXCLUDED_KP = ['blitz zone adam','house of quinn','moviepoopshoot.com'];
+  const allTeams = d.teams||[];
   const keepers = d.keepers||[];
 
   const sportGroups = {NFL:[],NBA:[],MLB:[]};
@@ -1583,9 +1594,11 @@ function renderKeepersYear(yr){
     const cls = sport==='NFL'?'stag-nfl':sport==='NBA'?'stag-nba':'stag-mlb';
     html += `<div class="section-gap"><div class="card-title">${sport} Keepers</div>
       <div class="grid-3">`;
-    for(let ti=0; ti<teams.length; ti++){
-      const t = teams[ti];
-      const tPicks = rows.map(row=>row.picks[ti]).filter(Boolean);
+    for(let ti=0; ti<allTeams.length; ti++){
+      const t = allTeams[ti];
+      if(EXCLUDED_KP.includes((t.team||'').toLowerCase())) continue;
+      const tPicks = rows.map(row=>row.picks[ti]).filter(p=>p && p.player);
+      if(!tPicks.length) continue;
       html += `<div class="card">
         <div style="color:${teamColor(ti)};font-weight:700;margin-bottom:4px">${esc(t.team)}</div>
         <div style="color:var(--text-2);font-size:11px;margin-bottom:8px">${esc(t.owner)}</div>
@@ -1593,7 +1606,6 @@ function renderKeepersYear(yr){
           <span class="${sportClass(p.sport)}" style="padding-left:5px;border-left-width:2px">${esc(p.player)}</span>
           ${p.traded_from ? `<span class="keeper-via"> via ${esc(p.traded_from)}</span>` : ''}
         </div>`).join('')}
-        ${!tPicks.length ? '<div style="color:var(--text-m);font-size:11px">No keepers</div>' : ''}
       </div>`;
     }
     html += '</div></div>';
