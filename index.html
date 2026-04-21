@@ -578,6 +578,30 @@ function rankBadge(r){
 }
 
 // ─── DATA LOADING ─────────────────────────────────────────────────────────────
+function parseRawStandingsCSV(csv){
+  // Parses the "Overall Standings" Google Sheet tab (A2:F14)
+  // Expected columns: RNK | Team | NFL | NBA | MLB | OVERALL
+  const lines = csv.split('\n').map(l => l.trim()).filter(Boolean);
+  const rows = [];
+  for(const line of lines){
+    const cols = line.split(',').map(c => c.replace(/^"|"$/g,'').trim());
+    const [rnk, team, nfl, nba, mlb, overall] = cols;
+    const rankNum = parseInt(rnk);
+    if(!isNaN(rankNum) && rankNum > 0 && team && team.toLowerCase() !== 'standings'){
+      const toNum = v => { const n = parseFloat(v); return isNaN(n) ? null : n; };
+      rows.push({
+        rank:      rankNum,
+        team:      team,
+        nfl_pts:   toNum(nfl),
+        nba_pts:   toNum(nba),
+        mlb_pts:   toNum(mlb),
+        total_pts: toNum(overall),
+      });
+    }
+  }
+  return rows;
+}
+
 function loadLiveData(){
   const LD = window.LIVE_DATA;
   if(!LD) return false;
@@ -596,13 +620,24 @@ function loadLiveData(){
     S.liveSeasonsData = sd.seasons || {};
     S.careerEarnings = sd.careerEarnings || [];
     buildAllTimeChampsFromSD(sd);
+  }
 
+  // Parse rawStandings CSV (Overall Standings tab) → always inject as current season (2026)
+  if(LD.rawStandings){
+    const parsed = parseRawStandingsCSV(LD.rawStandings);
+    if(parsed.length > 0){
+      if(!S.liveSeasonsData) S.liveSeasonsData = {};
+      S.liveSeasonsData[2026] = { standings: parsed, earnings: S.liveSeasonsData[2026]?.earnings || [] };
+    }
+  }
+
+  if(S.liveSeasonsData && LD.standingsData){
+    buildAllTimeChampsFromSD(LD.standingsData);
     // Build standings for default year
     buildStandingsFromSD(S.stdYear);
-
     // Build allSeasonStandings for all years
     for(const yr of CONFIG.SEASONS){
-      if(S.liveSeasonsData[yr]){
+      if(S.liveSeasonsData && S.liveSeasonsData[yr]){
         S.allSeasonStandings[yr] = buildStandingsObj(yr);
       }
     }
