@@ -2,7 +2,7 @@
 // Updated: April 27, 2026 at 02:07 PM
 // DO NOT EDIT — run update.py to regenerate
 
-const LIVE_DATA = {
+window.LIVE_DATA = {
   updated: "2026-04-27T14:07:31.054729",
   rawStandings: `RNK,2025-26 Standings,NFL,NBA,MLB,OVERALL,Last Updated,,2026 Standings,Amount,Winner,,Champions,,,Owner,Total,2022,2023,2024,2025,,,,,,,,,,,,,,,,
 1,Thanos,11.0,11.0,,22.0,4/6/2026,,1st Place,"$1,700",,,2026,,,,"$5,200","$1,650",$0,"$1,800","$1,750",,,,,,,,,,,,,,,,
