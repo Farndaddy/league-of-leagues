@@ -1909,7 +1909,7 @@ function renderRosters(){
   }
 
   yearPills.innerHTML = years.map(yr=>`
-    <button class="pill ${yr===String(ROSTER_STATE.year)?'active':''}" onclick="setRoYear(${yr})">${yr}</button>
+    <button class="pill ${yr===String(ROSTER_STATE.year)?'active':''}" onclick="setRoYear('${yr}')">${yr}</button>
   `).join('');
 
   const grid = document.getElementById('ro-grid');
