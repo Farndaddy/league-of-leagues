@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>League of Leagues — 2026 Draft Room</title>
+<style>
+:root{
+  --bg:#0b0f17; --panel:#131a26; --panel2:#1a2331; --line:#243044;
+  --txt:#e8eef7; --mut:#8b9bb4; --acc:#4f9dff; --good:#22c55e; --warn:#f59e0b;
+  --bad:#ef4444; --nfl:#ff6b6b; --nba:#60a5fa; --mlb:#fbbf24;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--txt);
+  font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+button{font:inherit;cursor:pointer;border:0}
+input,select{font:inherit}
+.hide{display:none!important}
+
+/* ---------- Join screen ---------- */
+#join{max-width:460px;margin:0 auto;padding:40px 20px}
+.logo{text-align:center;margin-bottom:28px}
+.logo h1{margin:0;font-size:26px;letter-spacing:-.02em}
+.logo p{margin:6px 0 0;color:var(--mut);font-size:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
+.lbl{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);
+  margin:0 0 7px;font-weight:600}
+select,input[type=text],input[type=password],input[type=number]{
+  width:100%;padding:12px;background:var(--panel2);border:1px solid var(--line);
+  border-radius:9px;color:var(--txt);outline:none}
+select:focus,input:focus{border-color:var(--acc)}
+.btn{width:100%;padding:13px;background:var(--acc);color:#fff;border-radius:9px;
+  font-weight:700;margin-top:14px}
+.btn:active{opacity:.85}
+.btn.sm{width:auto;padding:8px 14px;font-size:13px;margin:0}
+.btn.gray{background:var(--panel2);border:1px solid var(--line);color:var(--txt)}
+.btn.green{background:var(--good)} .btn.red{background:var(--bad)}
+.btn.warn{background:var(--warn);color:#1a1200}
+.err{color:var(--bad);font-size:13px;margin-top:10px;min-height:18px}
+
+/* ---------- Shell ---------- */
+header{position:sticky;top:0;z-index:50;background:rgba(11,15,23,.96);
+  backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.hbar{display:flex;align-items:center;gap:10px;padding:9px 12px}
+.hbar .who{font-weight:700;font-size:14px;flex:1;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.clockbox{display:flex;align-items:center;gap:8px;background:var(--panel);
+  border:1px solid var(--line);border-radius:10px;padding:6px 10px}
+.clock{font-variant-numeric:tabular-nums;font-weight:800;font-size:17px}
+.clock.low{color:var(--bad)} .clock.paused{color:var(--warn)}
+.onclock{font-size:12px;color:var(--mut);max-width:130px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+nav{display:flex;gap:4px;padding:0 8px 8px;overflow-x:auto;scrollbar-width:none}
+nav::-webkit-scrollbar{display:none}
+.tab{padding:7px 13px;border-radius:8px;background:transparent;color:var(--mut);
+  font-weight:600;font-size:13px;white-space:nowrap}
+.tab.on{background:var(--acc);color:#fff}
+main{padding:12px;max-width:1400px;margin:0 auto}
+h2{font-size:16px;margin:0 0 10px}
+.muted{color:var(--mut)}
+.sm{font-size:13px}
+
+/* ---------- Banners ---------- */
+.banner{padding:11px 13px;border-radius:11px;margin-bottom:12px;font-size:14px;
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.banner.you{background:#1c3a1f;border:1px solid var(--good)}
+.banner.pause{background:#3a2f16;border:1px solid var(--warn)}
+.banner.info{background:var(--panel);border:1px solid var(--line);color:var(--mut)}
+
+/* ---------- Pick panel ---------- */
+.search{display:flex;gap:8px;margin-bottom:10px}
+.search input{flex:1}
+.plist{max-height:52vh;overflow-y:auto;border:1px solid var(--line);
+  border-radius:11px;background:var(--panel)}
+.prow{display:flex;align-items:center;gap:10px;padding:10px 12px;
+  border-bottom:1px solid var(--line)}
+.prow:last-child{border-bottom:0}
+.prow .nm{flex:1;min-width:0;font-weight:600;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.prow .meta{font-size:12px;color:var(--mut);font-weight:400}
+.pill{font-size:10px;font-weight:800;padding:2px 6px;border-radius:5px;letter-spacing:.04em}
+.pill.NFL{background:#ff6b6b22;color:var(--nfl);border:1px solid #ff6b6b44}
+.pill.NBA{background:#60a5fa22;color:var(--nba);border:1px solid #60a5fa44}
+.pill.MLB{background:#fbbf2422;color:var(--mlb);border:1px solid #fbbf2444}
+.sportfilter{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.sf{padding:6px 12px;border-radius:20px;background:var(--panel2);
+  border:1px solid var(--line);color:var(--mut);font-size:13px;font-weight:600}
+.sf.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+
+/* ---------- Board ---------- */
+.boardwrap{overflow:auto;border:1px solid var(--line);border-radius:11px;
+  background:var(--panel);max-height:74vh}
+table{border-collapse:separate;border-spacing:0;font-size:12px;width:max-content;min-width:100%}
+th,td{padding:5px 7px;border-bottom:1px solid var(--line);
+  border-right:1px solid var(--line);white-space:nowrap}
+th{position:sticky;top:0;background:var(--panel2);z-index:2;font-size:11px;
+  text-align:left;color:var(--mut)}
+td.rnd,th.rnd{position:sticky;left:0;background:var(--panel2);z-index:1;
+  font-weight:800;text-align:center;color:var(--mut);min-width:34px}
+th.rnd{z-index:3}
+td.cell{min-width:132px;max-width:132px;overflow:hidden;text-overflow:ellipsis}
+td.cell .pk{display:block;font-weight:600;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+td.cell .sub{display:block;font-size:10px;color:var(--mut);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+td.now{background:#1d3557;box-shadow:inset 0 0 0 2px var(--acc)}
+td.miss{background:#3a1f1f}
+td.empty{color:#3d4a5f}
+.tr{color:var(--warn);font-size:9px;font-weight:800}
+
+/* ---------- Queue ---------- */
+.qrow{display:flex;align-items:center;gap:9px;padding:9px 11px;
+  background:var(--panel);border:1px solid var(--line);border-radius:9px;margin-bottom:6px}
+.qrow.gone{opacity:.4}
+.qrow .num{font-weight:800;color:var(--mut);min-width:20px}
+.qrow .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ic{background:var(--panel2);border:1px solid var(--line);color:var(--txt);
+  border-radius:7px;padding:5px 9px;font-size:13px;font-weight:700}
+.toggle{display:flex;align-items:center;gap:11px;padding:13px;background:var(--panel);
+  border:1px solid var(--line);border-radius:11px;margin-bottom:12px}
+.toggle input{width:22px;height:22px;accent-color:var(--acc);flex-shrink:0}
+.toggle div{flex:1}
+.toggle b{display:block;font-size:14px}
+.toggle span{font-size:12px;color:var(--mut)}
+
+/* ---------- Roster / admin ---------- */
+.grid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:11px}
+.tcard{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:12px}
+.tcard h3{margin:0 0 3px;font-size:14px}
+.tcard .cnt{font-size:11px;color:var(--mut);margin-bottom:9px}
+.tcard ol{margin:0;padding-left:20px;font-size:13px}
+.tcard li{padding:1px 0}
+.arow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.arow>*{margin:0}
+.sec{background:var(--panel);border:1px solid var(--line);border-radius:11px;
+  padding:13px;margin-bottom:11px}
+.sec h3{margin:0 0 10px;font-size:14px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.log{max-height:200px;overflow-y:auto;font-size:12px;color:var(--mut)}
+.log div{padding:3px 0;border-bottom:1px solid var(--line)}
+@media(max-width:600px){
+  main{padding:9px}
+  td.cell{min-width:112px;max-width:112px}
+}
+</style>
+</head>
+<body>
+
+<!-- ============ JOIN ============ -->
+<div id="join">
+  <div class="logo">
+    <h1>League of Leagues</h1>
+    <p>2026 Draft Room</p>
+  </div>
+  <div class="card">
+    <p class="lbl">Your team</p>
+    <select id="jTeam"></select>
+    <p class="lbl" style="margin-top:15px">4-digit PIN</p>
+    <input id="jPin" type="password" inputmode="numeric" maxlength="6" placeholder="••••">
+    <button class="btn" id="jGo">Enter Draft Room</button>
+    <div class="err" id="jErr"></div>
+    <button class="btn gray" id="jWatch" style="margin-top:2px">Just watching — no PIN</button>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="app" class="hide">
+<header>
+  <div class="hbar">
+    <div class="who" id="hWho"></div>
+    <div class="clockbox">
+      <div>
+        <div class="clock" id="hClock">--:--</div>
+        <div class="onclock" id="hOn"></div>
+      </div>
+    </div>
+  </div>
+  <nav>
+    <button class="tab on" data-v="pick">Pick</button>
+    <button class="tab" data-v="board">Board</button>
+    <button class="tab" data-v="queue">My Queue</button>
+    <button class="tab" data-v="rosters">Rosters</button>
+    <button class="tab hide" data-v="admin" id="tabAdmin">Admin</button>
+  </nav>
+</header>
+
+<main>
+  <!-- PICK -->
+  <section id="v-pick">
+    <div id="pBanner"></div>
+    <div id="pPicker" class="hide">
+      <div class="sportfilter" id="pSports"></div>
+      <div class="search">
+        <input id="pSearch" type="text" placeholder="Search players…" autocomplete="off">
+      </div>
+      <div class="plist" id="pList"></div>
+    </div>
+    <div class="sec" style="margin-top:12px">
+      <h3>Recent picks</h3>
+      <div class="log" id="pRecent"></div>
+    </div>
+  </section>
+
+  <!-- BOARD -->
+  <section id="v-board" class="hide">
+    <div class="arow">
+      <button class="btn sm gray" id="bJump">Jump to current pick</button>
+      <span class="sm muted" id="bInfo"></span>
+    </div>
+    <div class="boardwrap" id="bWrap"></div>
+  </section>
+
+  <!-- QUEUE -->
+  <section id="v-queue" class="hide">
+    <div id="qGuard" class="banner info">Join with your team PIN to build a queue.</div>
+    <div id="qBody" class="hide">
+      <label class="toggle">
+        <input type="checkbox" id="qAuto">
+        <div>
+          <b>Auto-pick from my queue</b>
+          <span>If my clock hits zero, take the top available player in my queue instead of skipping me.</span>
+        </div>
+      </label>
+      <div class="search">
+        <input id="qSearch" type="text" placeholder="Add a player to your queue…" autocomplete="off">
+      </div>
+      <div class="plist hide" id="qResults" style="max-height:34vh;margin-bottom:12px"></div>
+      <h2>Your queue <span class="muted sm" id="qCount"></span></h2>
+      <div id="qList"></div>
+    </div>
+  </section>
+
+  <!-- ROSTERS -->
+  <section id="v-rosters" class="hide">
+    <div class="grid2" id="rGrid"></div>
+  </section>
+
+  <!-- ADMIN -->
+  <section id="v-admin" class="hide">
+    <div class="sec">
+      <h3>Draft control</h3>
+      <div class="arow">
+        <button class="btn sm green" id="aStart">Start draft</button>
+        <button class="btn sm warn" id="aPause">Pause</button>
+        <button class="btn sm gray" id="aResume">Resume</button>
+        <button class="btn sm gray" id="aUndo">Undo last pick</button>
+        <button class="btn sm gray" id="aSkip">Skip current</button>
+      </div>
+      <div class="sm muted" id="aState"></div>
+    </div>
+
+    <div class="sec">
+      <h3>Clock</h3>
+      <div class="arow">
+        <span class="sm muted">Timer:</span>
+        <button class="btn sm gray" data-set="15">15m</button>
+        <button class="btn sm gray" data-set="30">30m</button>
+        <button class="btn sm gray" data-set="60">60m</button>
+        <button class="btn sm gray" data-set="240">4h</button>
+        <input id="aSetCustom" type="number" placeholder="min" style="width:80px">
+        <button class="btn sm" id="aSetGo">Set</button>
+      </div>
+      <div class="arow">
+        <span class="sm muted">Extend current:</span>
+        <button class="btn sm gray" data-add="15">+15m</button>
+        <button class="btn sm gray" data-add="30">+30m</button>
+        <button class="btn sm gray" data-add="60">+1hr</button>
+        <input id="aAddCustom" type="number" placeholder="min" style="width:80px">
+        <button class="btn sm" id="aAddGo">Add</button>
+        <button class="btn sm gray" id="aReset">Reset clock</button>
+      </div>
+      <div class="arow">
+        <label class="sm muted"><input type="checkbox" id="aQuietOn" style="width:auto"> Quiet hours</label>
+        <input id="aQuietS" type="number" min="0" max="23" style="width:70px"> to
+        <input id="aQuietE" type="number" min="0" max="23" style="width:70px">
+        <button class="btn sm" id="aQuietGo">Save</button>
+        <span class="sm muted">(24hr clock — clock freezes, but whoever is up can still pick)</span>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h3>Make a pick for someone / add off-list player</h3>
+      <div class="arow">
+        <input id="aPlayer" type="text" placeholder="Player name" style="width:200px">
+        <select id="aSport" style="width:100px">
+          <option>NFL</option><option>NBA</option><option>MLB</option>
+        </select>
+        <input id="aPos" type="text" placeholder="Pos" style="width:80px">
+        <button class="btn sm green" id="aPickGo">Submit for team on the clock</button>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h3>Trade picks</h3>
+      <div class="arow">
+        <span class="sm muted">Pick #</span>
+        <input id="aSwapA" type="number" placeholder="e.g. 145" style="width:100px">
+        <span class="sm muted">↔ Pick #</span>
+        <input id="aSwapB" type="number" placeholder="e.g. 210" style="width:100px">
+        <button class="btn sm" id="aSwapGo">Swap owners</button>
+      </div>
+      <div class="arow">
+        <span class="sm muted">Or reassign Pick #</span>
+        <input id="aReassignP" type="number" style="width:100px">
+        <span class="sm muted">to</span>
+        <select id="aReassignT" style="width:180px"></select>
+        <button class="btn sm" id="aReassignGo">Reassign</button>
+      </div>
+      <div class="log" id="aSwapLog"></div>
+    </div>
+
+    <div class="sec">
+      <h3>Export</h3>
+      <div class="arow">
+        <button class="btn sm gray" id="aExpCsv">Download picks CSV</button>
+        <button class="btn sm gray" id="aExpSheet">Copy for Google Sheet</button>
+        <button class="btn sm gray" id="aExpJson">Download JSON (for site)</button>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h3 style="color:var(--bad)">Danger</h3>
+      <div class="arow">
+        <button class="btn sm red" id="aReset2">Reset entire draft</button>
+        <span class="sm muted">Wipes all picks. Cannot be undone.</span>
+      </div>
+    </div>
+  </section>
+</main>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, onValue, set, update, get, runTransaction }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCTwVIRa2-Ag5yf6kMTMWVpkTIHt2cw17s",
+  authDomain: "league-of-leagues-draft.firebaseapp.com",
+  databaseURL: "https://league-of-leagues-draft-default-rtdb.firebaseio.com",
+  projectId: "league-of-leagues-draft",
+  storageBucket: "league-of-leagues-draft.firebasestorage.app",
+  messagingSenderId: "139858465409",
+  appId: "1:139858465409:web:ab1c69a196014b7f19b380"
+};
+const db = getDatabase(initializeApp(firebaseConfig));
+const R = p => ref(db, p);
+
+/* ===== Static draft data (from 2026 Draft Board) ===== */
+const TEAMS = [{"id":"kingfish","name":"KingFish","owner":"Chaz Q.","pin":"5500"},{"id":"coboners","name":"Co-Boners","owner":"Larry & Mo","pin":"6600"},{"id":"inches","name":"1st and Inches","owner":"Ted C.","pin":"1100"},{"id":"champ","name":"Champ","owner":"Chris C.","pin":"1001"},{"id":"turbo","name":"Turbo Team","owner":"Jon L.","pin":"2002"},{"id":"eminent","name":"Eminent Domain","owner":"De Smith","pin":"4004"},{"id":"wrightwood","name":"Wrightwood Boyz","owner":"Andrew & Timpe","pin":"7007"},{"id":"thanos","name":"Thanos","owner":"Moses J.","pin":"5005"},{"id":"blitz","name":"Blitz Zone Adam","owner":"Adam W.","pin":"9009"},{"id":"dawg","name":"Dawg Pound","owner":"Connor T.","pin":"2200"},{"id":"triple","name":"Triple Threat Sports","owner":"Farnia G.","pin":"3003"},{"id":"poopshoot","name":"MoviePoopShoot","owner":"Casey & Mark","pin":"8008"}];
+const ADMIN_CODE = "770077";
+const OWN="ABCDEFGHIJKLLKJIKGFEDCBAABCCEDGHCJKEEKJECGJECCBAABCEEKGBKJKLLKJJKGDEEKBAABCJEKGKEJKLEKJIKGDEJCBAABCBEDGCIJKLLAJEEEKECCBADBCDEDGJJJKLLAFIAACEDCBLJBCKLCKJIJHLLKJIJKDEDCBADBCDEJKCJJKLLKJCKDDEDCLAABCEEFGJIJKLLKJECGFCDCBAABCJDFGJIHKLLKJIKGFEDCBHGBCFEFGHIEGLLGHIGGFLGHBAABHFIFGHIHHLLDHIHGFFFLBGABIFAFGHIIFLLIHIHGFIFIBAABLFIFGHIHHLLFDIHGFIDDBAABHDIFGHIFHELHBIHGFHFHDHAHDADFGFIHHBAFIIDGFDADHA";
+const ORG="ABCDEFGHIJKLLKJIHGFEDCBAABCDEFGHIJKLLKJIHGFEDCBAABCDEFGHIJKLLKJIHGFEDCBAABCDEFGHIJKLLKJIHGFEDCBAABCDEFGHIJKLLKJIHGFEDCBAABCDEFGHIJKLLKJIHGFEDCBAABCDEFGHIJKLLKJIHGFEDCBAABCDEFGHIJKLLKJIHGFEDCBAABCDEFGHIJKLLKJIHGFEDCBAABCDEFGHIJKLLKJIHGFEDCBAABCDEFGHIJKLLKJIHGFEDCBAABCDEFGHIJKLLKJIHGFEDCBAABCDEFGHIJKLLKJIHGFEDCBAABCDEFGHIJKLLKJIHGFEDCBAABCDEFGHIJKLLKJIHGFEDCBAABCDEFGHIJKLLKJIHGFEDCBA";
+const TOTAL = OWN.length;                       // 384
+const tIdx = c => c.charCodeAt(0)-65;
+const baseOwner = i => TEAMS[tIdx(OWN[i])].id;  // includes traded picks
+const origOwner = i => TEAMS[tIdx(ORG[i])].id;
+const team = id => TEAMS.find(t=>t.id===id);
+const roundOf = i => Math.floor(i/12)+1;
+const slotOf  = i => i%12+1;
+
+/* ===== Local session ===== */
+let ME = null, ADMIN = false;
+try{ const s=JSON.parse(localStorage.getItem('lolDraft')||'null');
+     if(s){ ME=s.me; ADMIN=!!s.admin; } }catch(e){}
+const saveSession = ()=>localStorage.setItem('lolDraft',JSON.stringify({me:ME,admin:ADMIN}));
+
+/* ===== Live state ===== */
+let S = {status:'setup',cur:0,timerMin:60,extraMs:0,startedAt:0,
+         quietOn:true,quietS:23,quietE:8};
+let PICKS = {};      // overallIndex -> {p,sport,pos,team,at,auto}
+let OVER  = {};      // overallIndex -> teamId (admin reassignments)
+let QUEUES= {};      // teamId -> {auto:bool,list:[{p,sport,pos}]}
+let LOG   = [];
+let POOL  = [];      // player pool
+let poolLoaded = false;
+
+/* ===== Player pool ===== */
+async function loadPool(){
+  try{
+    const r = await fetch('./players.json',{cache:'no-store'});
+    if(r.ok){ POOL = await r.json(); poolLoaded=true; }
+  }catch(e){}
+  if(!poolLoaded) POOL = [];
+  renderPick();
+}
+const ownerOf = i => OVER[i] || baseOwner(i);
+const taken = () => new Set(Object.values(PICKS).map(x=>x.p.toLowerCase()));
+
+/* ===== Quiet hours ===== */
+function inQuiet(d){
+  if(!S.quietOn) return false;
+  const h=d.getHours(), a=S.quietS, b=S.quietE;
+  return a<b ? (h>=a&&h<b) : (h>=a||h<b);
+}
+// ms of quiet time between two timestamps (sampled per minute — plenty accurate)
+function quietMs(from,to){
+  if(!S.quietOn||to<=from) return 0;
+  let q=0; const step=60000;
+  for(let t=from;t<to;t+=step) if(inQuiet(new Date(t))) q+=Math.min(step,to-t);
+  return q;
+}
+function msLeft(){
+  if(S.status!=='live'||!S.startedAt) return null;
+  const now=Date.now();
+  const budget=S.timerMin*60000+(S.extraMs||0);
+  const used=(now-S.startedAt)-quietMs(S.startedAt,now);
+  return budget-used;
+}
+const fmt=ms=>{ if(ms==null) return '--:--';
+  if(ms<0) ms=0; const s=Math.floor(ms/1000);
+  const h=Math.floor(s/3600), m=Math.floor(s%3600/60), ss=s%60;
+  return h>0 ? `${h}:${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`
+             : `${m}:${String(ss).padStart(2,'0')}`; };
+
+/* ===== Firebase wiring ===== */
+onValue(R('state'), s=>{ if(s.exists()) S={...S,...s.val()}; paintAll(); });
+onValue(R('picks'), s=>{ PICKS=s.val()||{}; paintAll(); });
+onValue(R('overrides'), s=>{ OVER=s.val()||{}; paintAll(); });
+onValue(R('queues'), s=>{ QUEUES=s.val()||{}; paintQueue(); });
+onValue(R('log'), s=>{ LOG=Object.values(s.val()||{}); paintLog(); });
+
+const pushLog = txt => set(R('log/'+Date.now()+Math.floor(Math.random()*99)),
+  {t:Date.now(),txt});
+
+/* ===== Advance / expiry ===== */
+async function advance(fromIdx,reason){
+  await runTransaction(R('state'),cur=>{
+    if(!cur||cur.cur!==fromIdx||cur.status!=='live') return;   // someone beat us
+    cur.cur=fromIdx+1; cur.startedAt=Date.now(); cur.extraMs=0;
+    if(cur.cur>=TOTAL){ cur.status='done'; }
+    return cur;
+  });
+  if(reason) pushLog(reason);
+}
+
+async function submitPick(idx,player,sport,pos,byAuto){
+  const snap=await get(R('picks/'+idx));
+  if(snap.exists()) return {ok:false,msg:'That pick was already made.'};
+  const dup=Object.values(PICKS).some(x=>x.p.toLowerCase()===player.toLowerCase());
+  if(dup) return {ok:false,msg:player+' has already been drafted.'};
+  const tid=ownerOf(idx);
+  await set(R('picks/'+idx),{p:player,sport:sport||'',pos:pos||'',
+    team:tid,at:Date.now(),auto:!!byAuto});
+  pushLog(`${team(tid).name} — Rd ${roundOf(idx)} (#${idx+1}) — ${player}${byAuto?' (auto)':''}`);
+  if(idx===S.cur) await advance(idx,null);
+  return {ok:true};
+}
+
+/* expiry checker — any open client can trigger it */
+setInterval(async ()=>{
+  if(S.status!=='live') return;
+  const left=msLeft();
+  if(left===null||left>0) return;
+  const idx=S.cur;
+  if(PICKS[idx]) return;
+  const tid=ownerOf(idx);
+  const q=QUEUES[tid];
+  if(q&&q.auto&&Array.isArray(q.list)&&q.list.length){
+    const gone=taken();
+    const nxt=q.list.find(x=>!gone.has(x.p.toLowerCase()));
+    if(nxt){
+      const res=await submitPick(idx,nxt.p,nxt.sport,nxt.pos,true);
+      if(res.ok){
+        const rest=q.list.filter(x=>x.p!==nxt.p);
+        set(R('queues/'+tid+'/list'),rest);
+        return;
+      }
+    }
+  }
+  advance(idx,`${team(tid).name} skipped — Rd ${roundOf(idx)} (#${idx+1}) still open`);
+},2000);
+
+/* ===== Join screen ===== */
+const $=id=>document.getElementById(id);
+const jTeam=$('jTeam');
+TEAMS.forEach(t=>{ const o=document.createElement('option');
+  o.value=t.id; o.textContent=`${t.name} — ${t.owner}`; jTeam.appendChild(o); });
+
+$('jGo').onclick=()=>{
+  const id=jTeam.value, pin=$('jPin').value.trim();
+  if(pin===ADMIN_CODE){ ME=id; ADMIN=true; saveSession(); enter(); return; }
+  if(pin!==team(id).pin){ $('jErr').textContent='That PIN doesn’t match this team.'; return; }
+  ME=id; ADMIN=false; saveSession(); enter();
+};
+$('jPin').addEventListener('keydown',e=>{ if(e.key==='Enter') $('jGo').click(); });
+$('jWatch').onclick=()=>{ ME=null; ADMIN=false; saveSession(); enter(); };
+
+function enter(){
+  $('join').classList.add('hide');
+  $('app').classList.remove('hide');
+  $('tabAdmin').classList.toggle('hide',!ADMIN);
+  $('hWho').textContent = ME ? (team(ME).name + (ADMIN?' · ADMIN':'')) : 'Spectating';
+  loadPool(); paintAll();
+}
+if(ME!==null||localStorage.getItem('lolDraft')) enter();
+
+/* ===== Tabs ===== */
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');
+  ['pick','board','queue','rosters','admin'].forEach(v=>
+    $('v-'+v).classList.toggle('hide',v!==b.dataset.v));
+  if(b.dataset.v==='board') paintBoard();
+  if(b.dataset.v==='rosters') paintRosters();
+  if(b.dataset.v==='queue') paintQueue();
+});
+
+/* ===== Clock tick ===== */
+setInterval(()=>{
+  const c=$('hClock'); if(!c) return;
+  if(S.status==='setup'){ c.textContent='—'; c.className='clock'; $('hOn').textContent='Not started'; return; }
+  if(S.status==='done'){ c.textContent='Done'; c.className='clock'; $('hOn').textContent='Draft complete'; return; }
+  if(S.status==='paused'){ c.textContent='PAUSED'; c.className='clock paused'; $('hOn').textContent=''; return; }
+  const left=msLeft(); c.textContent=fmt(left);
+  c.className='clock'+(left!==null&&left<120000?' low':'')+(inQuiet(new Date())?' paused':'');
+  const tid=ownerOf(S.cur);
+  $('hOn').textContent = S.cur<TOTAL
+    ? `${team(tid).name} · Rd ${roundOf(S.cur)} · #${S.cur+1}`+(inQuiet(new Date())?' · quiet hrs':'')
+    : '';
+},500);
+
+/* ===== PICK view ===== */
+let sportFilter='ALL';
+$('pSports').innerHTML=['ALL','NFL','NBA','MLB'].map(s=>
+  `<button class="sf${s==='ALL'?' on':''}" data-s="${s}">${s}</button>`).join('');
+$('pSports').onclick=e=>{ const b=e.target.closest('.sf'); if(!b) return;
+  sportFilter=b.dataset.s;
+  $('pSports').querySelectorAll('.sf').forEach(x=>x.classList.toggle('on',x===b));
+  renderPick(); };
+$('pSearch').addEventListener('input',renderPick);
+
+// which pick slots can I fill right now? (current + any of my earlier skipped slots)
+function myOpenSlots(){
+  if(!ME) return [];
+  const out=[];
+  if(S.status==='live'&&S.cur<TOTAL&&ownerOf(S.cur)===ME&&!PICKS[S.cur]) out.push(S.cur);
+  for(let i=0;i<Math.min(S.cur,TOTAL);i++)
+    if(!PICKS[i]&&ownerOf(i)===ME) out.push(i);
+  return [...new Set(out)].sort((a,b)=>a-b);
+}
+
+function renderPick(){
+  const slots=myOpenSlots();
+  const bn=$('pBanner'); const onClock=S.cur<TOTAL?ownerOf(S.cur):null;
+  let html='';
+  if(S.status==='setup') html=`<div class="banner info">The draft hasn’t started yet.</div>`;
+  else if(S.status==='done') html=`<div class="banner info">Draft complete — all ${TOTAL} picks are in.</div>`;
+  else if(S.status==='paused') html=`<div class="banner pause"><b>Draft paused by the commissioner.</b></div>`;
+  else if(slots.length){
+    const isNow=slots[0]===S.cur;
+    html=`<div class="banner you"><b>You’re on the clock.</b>
+      ${isNow?`Round ${roundOf(S.cur)}, pick #${S.cur+1}.`:''}
+      ${slots.length>1||!isNow?`<span class="sm">${slots.length} open pick${slots.length>1?'s':''} — filling #${slots[0]+1} (Rd ${roundOf(slots[0])})</span>`:''}
+      ${inQuiet(new Date())?'<span class="sm">Clock is frozen for quiet hours — pick whenever you like.</span>':''}
+      </div>`;
+  } else if(onClock) html=`<div class="banner info">Waiting on <b>${team(onClock).name}</b> — Round ${roundOf(S.cur)}, pick #${S.cur+1}.</div>`;
+  bn.innerHTML=html;
+
+  const canPick=slots.length>0;
+  $('pPicker').classList.toggle('hide',!canPick);
+  if(!canPick){ paintLog(); return; }
+
+  const gone=taken();
+  const q=($('pSearch').value||'').toLowerCase().trim();
+  let list=POOL.filter(p=>!gone.has(p.p.toLowerCase()));
+  if(sportFilter!=='ALL') list=list.filter(p=>p.sport===sportFilter);
+  if(q) list=list.filter(p=>p.p.toLowerCase().includes(q));
+  list=list.slice(0,120);
+
+  const el=$('pList');
+  if(!poolLoaded){
+    el.innerHTML=`<div class="prow"><div class="nm">No player list loaded yet.
+      <span class="meta">Type a name below to draft anyone.</span></div></div>
+      <div class="prow"><input id="freeName" type="text" placeholder="Player name">
+      <button class="btn sm green" id="freeGo">Draft</button></div>`;
+  } else if(!list.length){
+    el.innerHTML=`<div class="prow"><div class="nm muted">No players match.</div></div>
+      <div class="prow"><input id="freeName" type="text" placeholder="Draft a player not on the list">
+      <button class="btn sm green" id="freeGo">Draft</button></div>`;
+  } else {
+    el.innerHTML=list.map(p=>`<div class="prow">
+      <span class="pill ${p.sport}">${p.sport}</span>
+      <div class="nm">${esc(p.p)}<span class="meta"> · ${esc(p.pos||'')} ${esc(p.tm||'')}</span></div>
+      <button class="ic" data-q="${esc(p.p)}">+Q</button>
+      <button class="btn sm green" data-pick="${esc(p.p)}" data-sp="${p.sport}" data-po="${esc(p.pos||'')}">Draft</button>
+      </div>`).join('');
+  }
+  el.onclick=async e=>{
+    const q=e.target.closest('[data-q]');
+    if(q){ addToQueue(q.dataset.q); q.textContent='✓'; return; }
+    const b=e.target.closest('[data-pick]');
+    if(b){
+      const nm=b.dataset.pick;
+      if(!confirm(`Draft ${nm}?`)) return;
+      b.disabled=true;
+      const r=await submitPick(slots[0],nm,b.dataset.sp,b.dataset.po,false);
+      if(!r.ok){ alert(r.msg); b.disabled=false; }
+      return;
+    }
+    if(e.target.id==='freeGo'){
+      const nm=($('freeName').value||'').trim();
+      if(!nm) return;
+      if(!confirm(`Draft ${nm}?`)) return;
+      const r=await submitPick(slots[0],nm,'','',false);
+      if(!r.ok) alert(r.msg);
+    }
+  };
+  paintLog();
+}
+
+function paintLog(){
+  const el=$('pRecent'); if(!el) return;
+  const rows=LOG.slice(-25).reverse();
+  el.innerHTML=rows.length?rows.map(r=>`<div>${esc(r.txt)}</div>`).join('')
+    :'<div class="muted">Nothing yet.</div>';
+}
+
+/* ===== BOARD ===== */
+function paintBoard(){
+  const rows=[];
+  rows.push('<tr><th class="rnd">Rd</th>'+Array.from({length:12},(_,c)=>
+    `<th>Pick ${c+1}</th>`).join('')+'</tr>');
+  for(let r=0;r<32;r++){
+    let tds='';
+    // columns are pick order within the round (snake direction already baked in)
+    for(let c=0;c<12;c++){
+      const i=r*12+c;
+      const own=ownerOf(i), pk=PICKS[i];
+      const cls=['cell'];
+      if(i===S.cur&&S.status==='live') cls.push('now');
+      else if(!pk&&i<S.cur) cls.push('miss');
+      if(!pk) cls.push('empty');
+      const tradedFlag = own!==origOwner(i) ? '<span class="tr">TRADE</span> ' : '';
+      tds+=`<td class="${cls.join(' ')}">`+
+        (pk?`<span class="pk">${esc(pk.p)}</span><span class="sub">${esc(team(own).name)}</span>`
+           :`<span class="pk">#${i+1}</span><span class="sub">${tradedFlag}${esc(team(own).name)}</span>`)+
+        '</td>';
+    }
+    rows.push(`<tr><td class="rnd">${r+1}</td>${tds}</tr>`);
+  }
+  $('bWrap').innerHTML='<table>'+rows.join('')+'</table>';
+  const made=Object.keys(PICKS).length;
+  $('bInfo').textContent=`${made} of ${TOTAL} picks made`;
+}
+$('bJump').onclick=()=>{
+  const el=document.querySelector('td.now');
+  if(el) el.scrollIntoView({block:'center',inline:'center',behavior:'smooth'});
+};
+
+/* ===== QUEUE ===== */
+function myQueue(){ return (QUEUES[ME]&&QUEUES[ME].list)||[]; }
+function addToQueue(name){
+  if(!ME) return;
+  const src=POOL.find(p=>p.p===name)||{p:name,sport:'',pos:''};
+  const cur=myQueue();
+  if(cur.some(x=>x.p===name)) return;
+  set(R('queues/'+ME+'/list'),[...cur,{p:src.p,sport:src.sport||'',pos:src.pos||''}]);
+}
+$('qAuto').onchange=e=>{ if(ME) set(R('queues/'+ME+'/auto'),e.target.checked); };
+$('qSearch').addEventListener('input',()=>{
+  const q=$('qSearch').value.toLowerCase().trim();
+  const box=$('qResults');
+  if(!q){ box.classList.add('hide'); return; }
+  const gone=taken(), have=new Set(myQueue().map(x=>x.p));
+  const list=POOL.filter(p=>!gone.has(p.p.toLowerCase())&&!have.has(p.p)&&
+    p.p.toLowerCase().includes(q)).slice(0,30);
+  box.classList.remove('hide');
+  box.innerHTML=list.length?list.map(p=>`<div class="prow">
+      <span class="pill ${p.sport}">${p.sport}</span>
+      <div class="nm">${esc(p.p)}<span class="meta"> · ${esc(p.pos||'')}</span></div>
+      <button class="btn sm" data-add="${esc(p.p)}">Add</button></div>`).join('')
+    :`<div class="prow"><div class="nm muted">No match.</div>
+      <button class="btn sm" data-addraw="1">Add "${esc($('qSearch').value)}"</button></div>`;
+  box.onclick=e=>{
+    const b=e.target.closest('[data-add]');
+    if(b){ addToQueue(b.dataset.add); $('qSearch').value=''; box.classList.add('hide'); return; }
+    if(e.target.dataset.addraw){ addToQueue($('qSearch').value.trim());
+      $('qSearch').value=''; box.classList.add('hide'); }
+  };
+});
+function paintQueue(){
+  $('qGuard').classList.toggle('hide',!!ME);
+  $('qBody').classList.toggle('hide',!ME);
+  if(!ME) return;
+  $('qAuto').checked=!!(QUEUES[ME]&&QUEUES[ME].auto);
+  const list=myQueue(), gone=taken();
+  $('qCount').textContent=`(${list.length})`;
+  $('qList').innerHTML=list.length?list.map((x,i)=>{
+    const g=gone.has(x.p.toLowerCase());
+    return `<div class="qrow${g?' gone':''}">
+      <span class="num">${i+1}</span>
+      ${x.sport?`<span class="pill ${x.sport}">${x.sport}</span>`:''}
+      <span class="nm">${esc(x.p)}${g?' — already drafted':''}</span>
+      <button class="ic" data-up="${i}">↑</button>
+      <button class="ic" data-dn="${i}">↓</button>
+      <button class="ic" data-rm="${i}">✕</button></div>`;
+  }).join(''):'<div class="muted sm">Your queue is empty. Search above, or tap +Q next to any player on the Pick tab.</div>';
+  $('qList').onclick=e=>{
+    const l=myQueue().slice();
+    const up=e.target.dataset.up,dn=e.target.dataset.dn,rm=e.target.dataset.rm;
+    if(up!==undefined){ const i=+up; if(i>0){ [l[i-1],l[i]]=[l[i],l[i-1]]; set(R('queues/'+ME+'/list'),l);} }
+    else if(dn!==undefined){ const i=+dn; if(i<l.length-1){ [l[i+1],l[i]]=[l[i],l[i+1]]; set(R('queues/'+ME+'/list'),l);} }
+    else if(rm!==undefined){ l.splice(+rm,1); set(R('queues/'+ME+'/list'),l); }
+  };
+}
+
+/* ===== ROSTERS ===== */
+function paintRosters(){
+  const by={}; TEAMS.forEach(t=>by[t.id]=[]);
+  Object.keys(PICKS).map(Number).sort((a,b)=>a-b).forEach(i=>{
+    const p=PICKS[i]; if(by[p.team]) by[p.team].push({...p,i});
+  });
+  $('rGrid').innerHTML=TEAMS.map(t=>{
+    const l=by[t.id];
+    const c={NFL:0,NBA:0,MLB:0};
+    l.forEach(x=>{ if(c[x.sport]!==undefined) c[x.sport]++; });
+    return `<div class="tcard"><h3>${esc(t.name)}</h3>
+      <div class="cnt">${esc(t.owner)} · ${l.length} picks ·
+        <span style="color:var(--nfl)">NFL ${c.NFL}/17</span> ·
+        <span style="color:var(--nba)">NBA ${c.NBA}/20</span> ·
+        <span style="color:var(--mlb)">MLB ${c.MLB}/23</span></div>
+      <ol>${l.map(x=>`<li>${esc(x.p)} <span class="muted sm">(Rd ${roundOf(x.i)})</span></li>`).join('')}</ol>
+      </div>`;
+  }).join('');
+}
+
+/* ===== ADMIN ===== */
+const aT=$('aReassignT');
+TEAMS.forEach(t=>{ const o=document.createElement('option');
+  o.value=t.id; o.textContent=t.name; aT.appendChild(o); });
+
+$('aStart').onclick=()=>{ if(!confirm('Start the draft?')) return;
+  update(R('state'),{status:'live',cur:0,startedAt:Date.now(),extraMs:0});
+  pushLog('Draft started'); };
+$('aPause').onclick=()=>{ update(R('state'),{status:'paused',pausedAt:Date.now()});
+  pushLog('Draft paused'); };
+$('aResume').onclick=()=>{
+  const held=S.pausedAt?Date.now()-S.pausedAt:0;
+  update(R('state'),{status:'live',startedAt:(S.startedAt||Date.now())+held,pausedAt:null});
+  pushLog('Draft resumed'); };
+$('aSkip').onclick=()=>{ if(!confirm('Skip the team on the clock?')) return;
+  advance(S.cur,`Admin skipped ${team(ownerOf(S.cur)).name} — #${S.cur+1}`); };
+$('aUndo').onclick=async()=>{
+  const ks=Object.keys(PICKS).map(Number).sort((a,b)=>b-a);
+  if(!ks.length) return;
+  const last=ks[0];
+  if(!confirm(`Undo pick #${last+1} (${PICKS[last].p})?`)) return;
+  await set(R('picks/'+last),null);
+  await update(R('state'),{cur:last,startedAt:Date.now(),extraMs:0,status:'live'});
+  pushLog(`Admin undid pick #${last+1}`); };
+
+document.querySelectorAll('[data-set]').forEach(b=>b.onclick=()=>{
+  update(R('state'),{timerMin:+b.dataset.set}); pushLog(`Timer set to ${b.dataset.set}m`); });
+$('aSetGo').onclick=()=>{ const v=+$('aSetCustom').value; if(v>0){
+  update(R('state'),{timerMin:v}); pushLog(`Timer set to ${v}m`); } };
+document.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{
+  update(R('state'),{extraMs:(S.extraMs||0)+ +b.dataset.add*60000});
+  pushLog(`Clock extended ${b.dataset.add}m`); });
+$('aAddGo').onclick=()=>{ const v=+$('aAddCustom').value; if(v>0){
+  update(R('state'),{extraMs:(S.extraMs||0)+v*60000}); pushLog(`Clock extended ${v}m`); } };
+$('aReset').onclick=()=>{ update(R('state'),{startedAt:Date.now(),extraMs:0});
+  pushLog('Clock reset'); };
+$('aQuietGo').onclick=()=>{
+  update(R('state'),{quietOn:$('aQuietOn').checked,
+    quietS:+$('aQuietS').value,quietE:+$('aQuietE').value});
+  pushLog('Quiet hours updated'); };
+
+$('aPickGo').onclick=async()=>{
+  const nm=$('aPlayer').value.trim(); if(!nm) return;
+  const r=await submitPick(S.cur,nm,$('aSport').value,$('aPos').value.trim(),false);
+  if(!r.ok) alert(r.msg); else { $('aPlayer').value=''; $('aPos').value=''; } };
+
+$('aSwapGo').onclick=async()=>{
+  const a=+$('aSwapA').value-1, b=+$('aSwapB').value-1;
+  if(isNaN(a)||isNaN(b)||a<0||b<0||a>=TOTAL||b>=TOTAL) return alert('Enter two valid pick numbers.');
+  const oa=ownerOf(a), ob=ownerOf(b);
+  await update(R('overrides'),{[a]:ob,[b]:oa});
+  pushLog(`TRADE: pick #${a+1} → ${team(ob).name}, pick #${b+1} → ${team(oa).name}`);
+  $('aSwapA').value=''; $('aSwapB').value=''; };
+$('aReassignGo').onclick=async()=>{
+  const p=+$('aReassignP').value-1, t=$('aReassignT').value;
+  if(isNaN(p)||p<0||p>=TOTAL) return alert('Enter a valid pick number.');
+  await set(R('overrides/'+p),t);
+  pushLog(`TRADE: pick #${p+1} → ${team(t).name}`);
+  $('aReassignP').value=''; };
+
+function pickRows(){
+  return Object.keys(PICKS).map(Number).sort((a,b)=>a-b).map(i=>{
+    const p=PICKS[i];
+    return {overall:i+1,round:roundOf(i),slot:slotOf(i),
+      team:team(p.team).name,owner:team(p.team).owner,
+      player:p.p,sport:p.sport||'',pos:p.pos||''};
+  });
+}
+function dl(name,txt,type){
+  const b=new Blob([txt],{type});const u=URL.createObjectURL(b);
+  const a=document.createElement('a');a.href=u;a.download=name;a.click();URL.revokeObjectURL(u);
+}
+$('aExpCsv').onclick=()=>{
+  const r=pickRows();
+  const csv=['Overall,Round,Slot,Team,Owner,Player,Sport,Pos']
+    .concat(r.map(x=>[x.overall,x.round,x.slot,x.team,x.owner,x.player,x.sport,x.pos]
+      .map(v=>`"${String(v).replace(/"/g,'""')}"`).join(','))).join('\n');
+  dl('LOL_2026_Draft_Results.csv',csv,'text/csv'); };
+$('aExpSheet').onclick=()=>{
+  const r=pickRows();
+  const tsv=['Overall\tRound\tSlot\tTeam\tOwner\tPlayer\tSport\tPos']
+    .concat(r.map(x=>[x.overall,x.round,x.slot,x.team,x.owner,x.player,x.sport,x.pos].join('\t'))).join('\n');
+  navigator.clipboard.writeText(tsv).then(()=>alert('Copied. Paste straight into your Google Sheet.'),
+    ()=>dl('draft.tsv',tsv,'text/plain')); };
+$('aExpJson').onclick=()=>{
+  const out={year:2026,generated:new Date().toISOString(),picks:pickRows()};
+  dl('draft2026.json',JSON.stringify(out,null,1),'application/json'); };
+
+$('aReset2').onclick=async()=>{
+  if(!confirm('Wipe ALL picks and restart the draft? This cannot be undone.')) return;
+  if(!confirm('Really sure?')) return;
+  await set(R('picks'),null); await set(R('log'),null);
+  await update(R('state'),{status:'setup',cur:0,startedAt:0,extraMs:0});
+  pushLog('Draft reset by admin'); };
+
+/* ===== paint ===== */
+function paintAll(){
+  if($('app').classList.contains('hide')) return;
+  renderPick();
+  if(!$('v-board').classList.contains('hide')) paintBoard();
+  if(!$('v-rosters').classList.contains('hide')) paintRosters();
+  if(ADMIN){
+    $('aState').textContent=`Status: ${S.status} · on pick #${S.cur+1} of ${TOTAL} · timer ${S.timerMin}m`+
+      (S.extraMs?` (+${Math.round(S.extraMs/60000)}m)`:'');
+    $('aQuietOn').checked=!!S.quietOn;
+    if(document.activeElement!==$('aQuietS')) $('aQuietS').value=S.quietS;
+    if(document.activeElement!==$('aQuietE')) $('aQuietE').value=S.quietE;
+    const sw=LOG.filter(x=>/TRADE|skipped|Admin/.test(x.txt)).slice(-12).reverse();
+    $('aSwapLog').innerHTML=sw.map(x=>`<div>${esc(x.txt)}</div>`).join('');
+  }
+}
+function esc(s){ return String(s??'').replace(/[&<>"']/g,
+  c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+</script>
+</body>
+</html>
