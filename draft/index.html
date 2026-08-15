@@ -291,6 +291,21 @@ td.empty{color:#3d4a5f}
     </div>
 
     <div class="sec">
+      <h3>Draft order — round 1 seats</h3>
+      <p class="sm muted" style="margin:0 0 10px">
+        Drag to reorder, or use the dropdowns. Even rounds reverse automatically (snake).
+        Traded picks follow their original team, so they stay correct when you reorder.
+      </p>
+      <div id="aSeat"></div>
+      <div class="arow" style="margin-top:10px">
+        <button class="btn sm green" id="aSeatSave">Save draft order</button>
+        <button class="btn sm gray" id="aSeatReset">Revert to saved</button>
+        <button class="btn sm gray" id="aSeatRandom">Randomize</button>
+        <span class="sm muted" id="aSeatMsg"></span>
+      </div>
+    </div>
+
+    <div class="sec">
       <h3>Trade picks</h3>
       <div class="arow">
         <span class="sm muted">Pick #</span>
@@ -349,15 +364,31 @@ const R = p => ref(db, p);
 /* ===== Static draft data (from 2026 Draft Board) ===== */
 const TEAMS = [{"id":"kingfish","name":"KingFish","owner":"Chaz Q.","pin":"5500"},{"id":"coboners","name":"Co-Boners","owner":"Larry & Mo","pin":"6600"},{"id":"inches","name":"1st and Inches","owner":"Ted C.","pin":"1100"},{"id":"champ","name":"Champ","owner":"Chris C.","pin":"1001"},{"id":"turbo","name":"Turbo Team","owner":"Jon L.","pin":"2002"},{"id":"eminent","name":"Eminent Domain","owner":"De Smith","pin":"4004"},{"id":"wrightwood","name":"Wrightwood Boyz","owner":"Andrew & Timpe","pin":"7007"},{"id":"thanos","name":"Thanos","owner":"Moses J.","pin":"5005"},{"id":"blitz","name":"Blitz Zone Adam","owner":"Adam W.","pin":"9009"},{"id":"dawg","name":"Dawg Pound","owner":"Connor T.","pin":"2200"},{"id":"triple","name":"Triple Threat Sports","owner":"Farnia G.","pin":"3003"},{"id":"poopshoot","name":"MoviePoopShoot","owner":"Casey & Mark","pin":"8008"}];
 const ADMIN_CODE = "770077";
-const OWN="ABCDEFGHIJKLLKJIKGFEDCBAABCCEDGHCJKEEKJECGJECCBAABCEEKGBKJKLLKJJKGDEEKBAABCJEKGKEJKLEKJIKGDEJCBAABCBEDGCIJKLLAJEEEKECCBADBCDEDGJJJKLLAFIAACEDCBLJBCKLCKJIJHLLKJIJKDEDCBADBCDEJKCJJKLLKJCKDDEDCLAABCEEFGJIJKLLKJECGFCDCBAABCJDFGJIHKLLKJIKGFEDCBHGBCFEFGHIEGLLGHIGGFLGHBAABHFIFGHIHHLLDHIHGFFFLBGABIFAFGHIIFLLIHIHGFIFIBAABLFIFGHIHHLLFDIHGFIDDBAABHDIFGHIFHELHBIHGFHFHDHAHDADFGFIHHBAFIIDGFDADHA";
-const ORG="ABCDEFGHIJKLLKJIHGFEDCBAABCDEFGHIJKLLKJIHGFEDCBAABCDEFGHIJKLLKJIHGFEDCBAABCDEFGHIJKLLKJIHGFEDCBAABCDEFGHIJKLLKJIHGFEDCBAABCDEFGHIJKLLKJIHGFEDCBAABCDEFGHIJKLLKJIHGFEDCBAABCDEFGHIJKLLKJIHGFEDCBAABCDEFGHIJKLLKJIHGFEDCBAABCDEFGHIJKLLKJIHGFEDCBAABCDEFGHIJKLLKJIHGFEDCBAABCDEFGHIJKLLKJIHGFEDCBAABCDEFGHIJKLLKJIHGFEDCBAABCDEFGHIJKLLKJIHGFEDCBAABCDEFGHIJKLLKJIHGFEDCBAABCDEFGHIJKLLKJIHGFEDCBA";
-const TOTAL = OWN.length;                       // 384
-const tIdx = c => c.charCodeAt(0)-65;
-const baseOwner = i => TEAMS[tIdx(OWN[i])].id;  // includes traded picks
-const origOwner = i => TEAMS[tIdx(ORG[i])].id;
+const ROUNDS = 32, TOTAL = ROUNDS*12;
+
+/* TRD[canonical team index][round-1] = letter of the team that NOW owns
+   that team's pick in that round. Trades are tied to the ORIGINAL team,
+   so they follow that team if the seat order changes. */
+const TRD=["AAAAAAAAAADLJADAAAAHGAAGAAAAAHAA","BBBBBBBBBBBBBBBLBBBBBBBBBBBBBDHH","CCCCCKCCCCCCCCCCCCCCCHHLIILDHHDD","DDCCEEJJBCDDKDDDEDJDFGFFFFFDDFAA","EEEEEEEEEEEELEEEECDEELIFAIIIIHDD","FFDJKDKDDKDCCDJDFFFFFFFFFFFFFFFF","GGGGGGGGGEGAKKKDGGGGGGGGGGGGGGGG","HKHCBKKKCEJAJJCKJCJKHGHHHHHHHHFD","IICEKJEIIEJIIIJCIEIIIIIIIIIIIIII","JJJJJJJJJJJFJJJJJJHJEHHHIHHDFBHI","KKKKKKKKKAKAHKKKKKKKGGHDFIHFHHHF","LLEELLLELLLLLLLLLLLLLLLLLLLLELBA"];
+const SEAT_DEFAULT=["kingfish","coboners","inches","champ","turbo","eminent","wrightwood","thanos","blitz","dawg","triple","poopshoot"];
+
 const team = id => TEAMS.find(t=>t.id===id);
+const cIdx = id => TEAMS.findIndex(t=>t.id===id);
 const roundOf = i => Math.floor(i/12)+1;
 const slotOf  = i => i%12+1;
+
+/* seat order is live-editable; snake direction derives from the round */
+let SEAT = SEAT_DEFAULT.slice();
+function seatAt(i){                       // original owner of pick i
+  const r=Math.floor(i/12), c=i%12;
+  return SEAT[r%2===0 ? c : 11-c];
+}
+const origOwner = i => seatAt(i);
+function baseOwner(i){                    // after trades follow their team
+  const o=seatAt(i), ci=cIdx(o);
+  if(ci<0) return o;
+  return TEAMS[TRD[ci].charCodeAt(Math.floor(i/12))-65].id;
+}
 
 /* ===== Local session ===== */
 let ME = null, ADMIN = false;
@@ -415,6 +446,11 @@ const fmt=ms=>{ if(ms==null) return '--:--';
 
 /* ===== Firebase wiring ===== */
 onValue(R('state'), s=>{ if(s.exists()) S={...S,...s.val()}; paintAll(); });
+onValue(R('seatOrder'), s=>{
+  const v=s.val();
+  if(Array.isArray(v)&&v.length===12) SEAT=v.slice();
+  paintAll(); paintSeatEditor();
+});
 onValue(R('picks'), s=>{ PICKS=s.val()||{}; paintAll(); });
 onValue(R('overrides'), s=>{ OVER=s.val()||{}; paintAll(); });
 onValue(R('queues'), s=>{ QUEUES=s.val()||{}; paintQueue(); });
@@ -785,6 +821,64 @@ $('aReassignGo').onclick=async()=>{
   pushLog(`TRADE: pick #${p+1} → ${team(t).name}`);
   $('aReassignP').value=''; };
 
+/* ---- seat order editor ---- */
+let SEATDRAFT = null;                     // working copy while editing
+function paintSeatEditor(){
+  const host=$('aSeat'); if(!host||!ADMIN) return;
+  if(!SEATDRAFT) SEATDRAFT=SEAT.slice();
+  host.innerHTML=SEATDRAFT.map((id,i)=>`
+    <div class="qrow" draggable="true" data-i="${i}" style="cursor:grab">
+      <span class="num">${i+1}</span>
+      <span style="cursor:grab;color:var(--mut)">⠿</span>
+      <select data-sel="${i}" style="flex:1">
+        ${TEAMS.map(t=>`<option value="${t.id}"${t.id===id?' selected':''}>${esc(t.name)} — ${esc(t.owner)}</option>`).join('')}
+      </select>
+      <button class="ic" data-up="${i}">↑</button>
+      <button class="ic" data-dn="${i}">↓</button>
+    </div>`).join('');
+
+  const dirty=SEATDRAFT.join()!==SEAT.join();
+  const dupes=new Set(SEATDRAFT).size!==12;
+  $('aSeatMsg').textContent = dupes ? '⚠ A team is listed twice — fix before saving.'
+    : dirty ? 'Unsaved changes' : 'Saved order is live.';
+  $('aSeatMsg').style.color = dupes ? 'var(--bad)' : dirty ? 'var(--warn)' : 'var(--mut)';
+
+  host.querySelectorAll('[data-sel]').forEach(s=>s.onchange=e=>{
+    SEATDRAFT[+e.target.dataset.sel]=e.target.value; paintSeatEditor(); });
+  host.onclick=e=>{
+    const u=e.target.dataset.up, d=e.target.dataset.dn;
+    if(u!==undefined){ const i=+u; if(i>0){ [SEATDRAFT[i-1],SEATDRAFT[i]]=[SEATDRAFT[i],SEATDRAFT[i-1]]; paintSeatEditor(); } }
+    if(d!==undefined){ const i=+d; if(i<11){ [SEATDRAFT[i+1],SEATDRAFT[i]]=[SEATDRAFT[i],SEATDRAFT[i+1]]; paintSeatEditor(); } }
+  };
+  let dragFrom=null;
+  host.querySelectorAll('[draggable]').forEach(row=>{
+    row.ondragstart=e=>{ dragFrom=+row.dataset.i; e.dataTransfer.effectAllowed='move'; };
+    row.ondragover=e=>{ e.preventDefault(); row.style.outline='2px solid var(--acc)'; };
+    row.ondragleave=()=>{ row.style.outline=''; };
+    row.ondrop=e=>{
+      e.preventDefault(); row.style.outline='';
+      const to=+row.dataset.i;
+      if(dragFrom===null||dragFrom===to) return;
+      const m=SEATDRAFT.splice(dragFrom,1)[0];
+      SEATDRAFT.splice(to,0,m);
+      dragFrom=null; paintSeatEditor();
+    };
+  });
+}
+$('aSeatSave').onclick=async()=>{
+  if(new Set(SEATDRAFT).size!==12) return alert('Every team must appear exactly once.');
+  if(S.status==='live'&&!confirm('The draft is LIVE. Changing the order now will reshuffle who owns upcoming picks. Continue?')) return;
+  await set(R('seatOrder'),SEATDRAFT.slice());
+  pushLog('Draft order updated: '+SEATDRAFT.map(id=>team(id).name).join(' → '));
+  SEATDRAFT=null; paintSeatEditor();
+};
+$('aSeatReset').onclick=()=>{ SEATDRAFT=SEAT.slice(); paintSeatEditor(); };
+$('aSeatRandom').onclick=()=>{
+  const a=SEATDRAFT.slice();
+  for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  SEATDRAFT=a; paintSeatEditor();
+};
+
 function pickRows(){
   return Object.keys(PICKS).map(Number).sort((a,b)=>a-b).map(i=>{
     const p=PICKS[i];
@@ -834,6 +928,7 @@ function paintAll(){
     if(document.activeElement!==$('aQuietE')) $('aQuietE').value=S.quietE;
     const sw=LOG.filter(x=>/TRADE|skipped|Admin/.test(x.txt)).slice(-12).reverse();
     $('aSwapLog').innerHTML=sw.map(x=>`<div>${esc(x.txt)}</div>`).join('');
+    if(!SEATDRAFT) paintSeatEditor();
   }
 }
 function esc(s){ return String(s??'').replace(/[&<>"']/g,
