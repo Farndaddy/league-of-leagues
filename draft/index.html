@@ -168,6 +168,7 @@ td.empty{color:#3d4a5f}
 <header>
   <div class="hbar">
     <div class="who" id="hWho"></div>
+    <button class="ic" id="hOut" title="Sign out / switch team">Sign out</button>
     <div class="clockbox">
       <div>
         <div class="clock" id="hClock">--:--</div>
@@ -405,6 +406,8 @@ let QUEUES= {};      // teamId -> {auto:bool,list:[{p,sport,pos}]}
 let LOG   = [];
 let POOL  = [];      // player pool
 let poolLoaded = false;
+let sportFilter = 'ALL';   // declared up here — renderPick() reads it on first paint
+let SEATDRAFT = null;      // ditto for the admin seat editor
 
 /* ===== Player pool ===== */
 async function loadPool(){
@@ -529,7 +532,7 @@ function enter(){
   $('hWho').textContent = ME ? (team(ME).name + (ADMIN?' · ADMIN':'')) : 'Spectating';
   loadPool(); paintAll();
 }
-if(ME!==null||localStorage.getItem('lolDraft')) enter();
+/* auto-enter is deliberately at the BOTTOM of this file — see note there */
 
 /* ===== Tabs ===== */
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{
@@ -557,7 +560,6 @@ setInterval(()=>{
 },500);
 
 /* ===== PICK view ===== */
-let sportFilter='ALL';
 $('pSports').innerHTML=['ALL','NFL','NBA','MLB'].map(s=>
   `<button class="sf${s==='ALL'?' on':''}" data-s="${s}">${s}</button>`).join('');
 $('pSports').onclick=e=>{ const b=e.target.closest('.sf'); if(!b) return;
@@ -822,7 +824,6 @@ $('aReassignGo').onclick=async()=>{
   $('aReassignP').value=''; };
 
 /* ---- seat order editor ---- */
-let SEATDRAFT = null;                     // working copy while editing
 function paintSeatEditor(){
   const host=$('aSeat'); if(!host||!ADMIN) return;
   if(!SEATDRAFT) SEATDRAFT=SEAT.slice();
@@ -933,6 +934,20 @@ function paintAll(){
 }
 function esc(s){ return String(s??'').replace(/[&<>"']/g,
   c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ===== sign out ===== */
+$('hOut').onclick=()=>{
+  const who = ME ? team(ME).name : 'spectator mode';
+  if(!confirm(`Sign out of ${who} on this device?\n\nYou can sign back in with your PIN anytime. Your picks and queue are saved.`)) return;
+  localStorage.removeItem('lolDraft');
+  location.reload();
+};
+
+/* ===== auto-enter — MUST BE LAST =====
+   enter() paints the whole app, which reads variables declared throughout this
+   file. Calling it any earlier throws a "cannot access before initialization"
+   error that silently kills every click handler defined below it. */
+if(ME!==null||localStorage.getItem('lolDraft')) enter();
 </script>
 </body>
 </html>
