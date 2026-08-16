@@ -1098,11 +1098,35 @@ $('aExpJson').onclick=()=>{
   dl('draft2026.json',JSON.stringify(out,null,1),'application/json'); };
 
 $('aReset2').onclick=async()=>{
-  if(!confirm('Wipe ALL picks and restart the draft? This cannot be undone.')) return;
-  if(!confirm('Really sure?')) return;
-  await set(R('picks'),null); await set(R('log'),null);
+  if(!confirm('FULL RESET — this wipes:\n\n' +
+    '• every pick made in the draft room\n' +
+    '• the activity log\n' +
+    '• all pick reassignments made with the Trade buttons\n' +
+    '• every team\'s queue\n' +
+    '• the Google Sheet board grid and Draft Log tab\n\n' +
+    'Your 145 real traded picks from the 2026 board are NOT affected.\n' +
+    'This cannot be undone. Continue?')) return;
+  if(!confirm('Last chance — really wipe everything?')) return;
+
+  $('aHookMsg').textContent='Resetting…';
+  await set(R('picks'),null);
+  await set(R('log'),null);
+  await set(R('overrides'),null);     // admin pick reassignments
+  await set(R('queues'),null);        // every team's queue + autopick flag
   await update(R('state'),{status:'setup',cur:0,startedAt:0,extraMs:0});
-  pushLog('Draft reset by admin'); };
+  localStorage.removeItem(QKEY);      // any unsent picks waiting in this browser
+
+  // tell the Sheet to clear itself too
+  const url=(S.sheetHook||'').trim();
+  if(url){
+    try{
+      await fetch(url,{method:'POST',mode:'no-cors',
+        headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body:JSON.stringify({reset:true})});
+    }catch(e){}
+  }
+  $('aHookMsg').textContent='Reset sent. Check the Sheet — the grid and Draft Log should be empty.';
+  pushLog('FULL RESET by admin'); };
 
 /* ===== paint ===== */
 function paintAll(){

@@ -12,7 +12,7 @@
  *       Who has access:  Anyone      <- required
  *  4. Deploy, authorize, copy the web app URL
  *  5. Draft room -> Admin -> Google Sheet backup -> paste URL -> Save
- *  6. Click "Build board layout", then "Send test row"
+ *  6. Click "Send test row" in the draft room to confirm the connection
  */
 
 // ================== CONFIG ==================
@@ -60,9 +60,9 @@ function doPost(e) {
     var body = JSON.parse(e.postData.contents);
     var ss = SpreadsheetApp.getActiveSpreadsheet();
 
-    if (body.setup) {
-      buildBoard(ss, body.setup);
-      out.setup = true;
+    if (body.reset) {
+      clearEverything(ss);
+      out.reset = true;
       return json(out);
     }
 
@@ -161,82 +161,28 @@ function writeToBoard(board, p) {
   }
 }
 
-/** Adds a small colour key under the board. Called by buildBoard. */
-function writeLegend(board, rounds) {
-  var row = BOARD_FIRST_ROW + rounds + 1;
-  board.getRange(row, ROUND_COL_LEFT).setValue('Key').setFontWeight('bold');
-  var sports = ['NFL', 'NBA', 'MLB'];
-  for (var i = 0; i < sports.length; i++) {
-    var c = board.getRange(row, BOARD_FIRST_COL + i);
-    c.setValue(sports[i])
-     .setBackground(SPORT_BG[sports[i]])
-     .setFontColor(SPORT_FG[sports[i]])
-     .setHorizontalAlignment('center')
-     .setFontWeight('bold');
+/** Empties the board grid and the Draft Log. Called by the draft room's reset. */
+function clearEverything(ss) {
+  var board = ss.getSheetByName(BOARD_TAB);
+  if (board) {
+    var rng = board.getRange(BOARD_FIRST_ROW, BOARD_FIRST_COL, 32, TEAMS_ACROSS);
+    rng.clearContent();
+    rng.clearNote();
+    rng.setFontColor(null);
+    rng.setFontStyle('normal');
+    rng.setFontWeight('normal');
+    rng.setBackground(null);
   }
-  board.getRange(row, BOARD_FIRST_COL + 3)
-       .setValue('* italic = traded pick')
-       .setFontStyle('italic')
-       .setFontColor('#5F5E5A');
+  var log = ss.getSheetByName(LOG_TAB);
+  if (log) {
+    var last = log.getLastRow();
+    if (last > 1) log.deleteRows(2, last - 1);   // keep the header row
+  }
 }
 
-/** Lays out the board: headers, round numbers, snake arrows. Player cells untouched. */
-function buildBoard(ss, cfg) {
-  var board = ss.getSheetByName(BOARD_TAB) || ss.insertSheet(BOARD_TAB);
-  var seats  = cfg.seats  || [];
-  var owners = cfg.owners || [];
-  var rounds = cfg.rounds || 32;
-
-  board.getRange(HEADER_ROW, ROUND_COL_LEFT).setValue('Rd').setFontWeight('bold');
-  board.getRange(HEADER_ROW, ROUND_COL_RIGHT).setValue('Rd').setFontWeight('bold');
-
-  for (var c = 0; c < TEAMS_ACROSS; c++) {
-    var label = LAYOUT === 'seats'
-      ? (seats[c] || ('Seat ' + (c + 1))) + (owners[c] ? '\n' + owners[c] : '')
-      : 'Pick ' + (c + 1);
-    board.getRange(HEADER_ROW, BOARD_FIRST_COL + c)
-         .setValue(label)
-         .setFontWeight('bold')
-         .setWrap(true)
-         .setHorizontalAlignment('center')
-         .setFontSize(9);
-    board.setColumnWidth(BOARD_FIRST_COL + c, 110);
-  }
-
-  for (var r = 0; r < rounds; r++) {
-    var row = BOARD_FIRST_ROW + r;
-    var arrow = (r % 2 === 0) ? '--->' : '<---';
-    board.getRange(row, ROUND_COL_LEFT).setValue(r + 1)
-         .setFontWeight('bold').setHorizontalAlignment('center');
-    board.getRange(row, ROUND_COL_RIGHT).setValue(r + 1)
-         .setFontWeight('bold').setHorizontalAlignment('center');
-    board.getRange(row, ARROW_COL_LEFT).setValue(arrow)
-         .setHorizontalAlignment('center').setFontColor('#888780');
-    board.getRange(row, ARROW_COL_RIGHT).setValue(arrow)
-         .setHorizontalAlignment('center').setFontColor('#888780');
-    board.setRowHeight(row, 32);
-  }
-
-  board.setColumnWidth(ROUND_COL_LEFT, 36);
-  board.setColumnWidth(ARROW_COL_LEFT, 44);
-  board.setColumnWidth(ARROW_COL_RIGHT, 44);
-  board.setColumnWidth(ROUND_COL_RIGHT, 36);
-  board.setRowHeight(HEADER_ROW, 40);
-  board.setFrozenRows(HEADER_ROW);
-  board.setFrozenColumns(ARROW_COL_LEFT);
-  writeLegend(board, rounds);
-}
-
-/** Wipes every player cell but leaves the layout. Handy after a mock draft. */
+/** Same thing, runnable by hand from this editor if you ever need it. */
 function clearPicks() {
-  var board = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(BOARD_TAB);
-  if (!board) return;
-  var rng = board.getRange(BOARD_FIRST_ROW, BOARD_FIRST_COL, 32, TEAMS_ACROSS);
-  rng.clearContent();
-  rng.clearNote();
-  rng.setFontColor(null);
-  rng.setFontStyle('normal');
-  rng.setBackground(null);
+  clearEverything(SpreadsheetApp.getActiveSpreadsheet());
 }
 
 /* ---------------------------------------------------------------
