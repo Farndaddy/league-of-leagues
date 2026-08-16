@@ -23,8 +23,8 @@ var BOARD_TAB = '2026 Live Draft Board';
 //         your 2026 Draft Board). 'pickorder' numbers columns Pick 1..Pick 12.
 var LAYOUT = 'seats';
 
-var HEADER_ROW      = 1;   // team names live here
-var BOARD_FIRST_ROW = 2;   // round 1 goes in this row
+var HEADER_ROW      = 1;   // owner names (row 1), team names (row 2)
+var BOARD_FIRST_ROW = 3;   // round 1 goes in row 3 — first pick cell is C3
 var ROUND_COL_LEFT  = 1;   // column A — round number
 var ARROW_COL_LEFT  = 2;   // column B — direction arrow
 var BOARD_FIRST_COL = 3;   // column C — first team column
@@ -49,11 +49,9 @@ var NO_SPORT_FG = '#2C2C2A';
 
 // Traded picks — marked with the prefix, italics and a note.
 // Background is reserved for the sport, so trades are shown by text instead.
-var TRADE_PREFIX = '* ';
+var TRADE_PREFIX = '* ';           // marks the ownership line on a traded pick
 var TRADE_NOTE   = true;
-
-var INCLUDE_TEAM_IN_CELL = true;   // second line shows who actually drafted
-var TEAM_SEPARATOR = '\n';
+var OWNER_LINE_COLOR = '#5F5E5A';  // grey for the ownership line underneath
 // ============================================
 
 function doPost(e) {
@@ -124,35 +122,41 @@ function colFor(p) {
 function writeToBoard(board, p) {
   var row = BOARD_FIRST_ROW + (p.round - 1);
   var col = colFor(p);
-
-  var text = p.player;
-  if (p.traded) text = TRADE_PREFIX + text;
-  if (INCLUDE_TEAM_IN_CELL) text += TEAM_SEPARATOR + p.team;
-
   var cell = board.getRange(row, col);
-  cell.setValue(text);
+
+  var player = String(p.player || '');
+  var ownerLine = p.teamLabel || p.team || '';
+  if (p.traded) ownerLine = TRADE_PREFIX + ownerLine;
+
+  var text = player + '\n' + ownerLine;
+  var fg = SPORT_FG[p.sport] || NO_SPORT_FG;
+  var bg = SPORT_BG[p.sport] || NO_SPORT_BG;
+
+  // Player on top in the sport colour, ownership underneath in smaller grey.
+  var playerStyle = SpreadsheetApp.newTextStyle()
+    .setBold(true).setFontSize(10).setForegroundColor(fg).build();
+  var ownerStyle = SpreadsheetApp.newTextStyle()
+    .setBold(false).setItalic(!!p.traded).setFontSize(8)
+    .setForegroundColor(OWNER_LINE_COLOR).build();
+
+  var rich = SpreadsheetApp.newRichTextValue()
+    .setText(text)
+    .setTextStyle(0, player.length, playerStyle)
+    .setTextStyle(player.length + 1, text.length, ownerStyle)
+    .build();
+
+  cell.setRichTextValue(rich);
+  cell.setBackground(bg);
   cell.setWrap(true);
   cell.setVerticalAlignment('top');
   cell.setHorizontalAlignment('center');
-  cell.setFontSize(9);
 
-  // background = sport
-  var bg = SPORT_BG[p.sport] || NO_SPORT_BG;
-  var fg = SPORT_FG[p.sport] || NO_SPORT_FG;
-  cell.setBackground(bg);
-  cell.setFontColor(fg);
-
-  // traded = asterisk + italics + hover note (background is taken by the sport)
-  if (p.traded) {
-    cell.setFontStyle('italic');
-    if (TRADE_NOTE) {
-      cell.setNote('TRADED PICK\n' +
-                   'Seat belongs to ' + p.origTeam + ' (' + p.origOwner + ')\n' +
-                   'Drafted by ' + p.team + ' (' + p.owner + ')\n' +
-                   'Round ' + p.round + ' · overall #' + p.overall);
-    }
+  if (p.traded && TRADE_NOTE) {
+    cell.setNote('TRADED PICK\n' +
+                 'Seat belongs to ' + p.origTeam + ' (' + p.origOwner + ')\n' +
+                 'Drafted by ' + p.team + ' (' + p.owner + ')\n' +
+                 'Round ' + p.round + ' · overall #' + p.overall);
   } else {
-    cell.setFontStyle('normal');
     cell.setNote(null);
   }
 }
