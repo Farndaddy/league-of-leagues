@@ -21,7 +21,7 @@
 // ============ CONFIG — adjust these to match your sheet ============
 
 var LOG_TAB   = 'Draft Log';
-var BOARD_TAB = 'Live Draft Board';
+var BOARD_TAB = '2026 Live Draft Board';
 
 // Where the grid starts. Round 1 / Pick 1 goes in this cell.
 var BOARD_FIRST_ROW = 2;   // row 2
