@@ -308,9 +308,14 @@ td.empty{color:#3d4a5f}
       </div>
       <div class="arow">
         <button class="btn sm gray" id="aHookTest">Send test row</button>
+        <button class="btn sm gray" id="aBoardSetup">Build board layout</button>
         <button class="btn sm gray" id="aResync">Re-sync every pick</button>
         <span class="sm muted" id="aHookMsg"></span>
       </div>
+      <p class="sm muted" style="margin:8px 0 0">
+        "Build board layout" writes the round numbers, snake arrows and your 12 team
+        columns into the Sheet — run it once, and again if you change the draft order.
+      </p>
     </div>
 
     <div class="sec">
@@ -519,8 +524,12 @@ const qSet=a=>localStorage.setItem(QKEY,JSON.stringify(a.slice(-500)));
 
 function pickPayload(idx,p){
   const tid=p.team, own=ownerOf(idx), orig=origOwner(idx);
+  const r=Math.floor(idx/12), c=idx%12;
+  const seatIndex=(r%2===0 ? c : 11-c)+1;   // 1-12, fixed seat column on a snake board
   return {
     overall:idx+1, round:roundOf(idx), slot:slotOf(idx),
+    seatIndex, seatTeam:team(orig).name,
+    direction:(r%2===0?'--->':'<---'),
     teamId:tid, team:team(tid).name, owner:team(tid).owner,
     player:p.p, sport:p.sport||'', pos:p.pos||'',
     traded: orig!==own,
@@ -962,6 +971,22 @@ $('aHookTest').onclick=async()=>{
     owner:'—',player:'Test connection',sport:'NFL',pos:'—',traded:false,
     origTeamId:'test',origTeam:'TEST ROW',origOwner:'—',auto:false,at:Date.now()}]);
   $('aHookMsg').textContent=r.ok?'Sent — look for a TEST ROW in the Sheet.':'Failed: '+r.msg;
+};
+$('aBoardSetup').onclick=async()=>{
+  if(!confirm('Write the board layout into the Sheet?\n\nThis sets the header row, round numbers and snake arrows. Player names already in the grid are not touched.')) return;
+  $('aHookMsg').textContent='Building…';
+  const url=(S.sheetHook||'').trim();
+  if(!url){ $('aHookMsg').textContent='No Sheet link set.'; return; }
+  try{
+    await fetch(url,{method:'POST',mode:'no-cors',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({setup:{
+        seats:SEAT.map(id=>team(id).name),
+        owners:SEAT.map(id=>team(id).owner),
+        rounds:32
+      }})});
+    $('aHookMsg').textContent='Sent — check the board tab.';
+  }catch(e){ $('aHookMsg').textContent='Failed: '+e; }
 };
 $('aResync').onclick=async()=>{
   const ks=Object.keys(PICKS).map(Number).sort((a,b)=>a-b);

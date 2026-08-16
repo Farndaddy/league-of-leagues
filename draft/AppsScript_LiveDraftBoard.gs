@@ -1,60 +1,60 @@
 /**
- * League of Leagues — Live Draft Board backup
- * =============================================
- * Receives every pick from the draft room and writes it into the Master Sheet.
+ * League of Leagues — 2026 Live Draft Board
+ * ==========================================
+ * Mirrors every pick from the draft room into the Master Sheet, laid out like a
+ * real draft board: fixed team columns, snake arrows, one pick per cell.
  *
  * SETUP (one time):
- *  1. Open the Master Spreadsheet
- *  2. Extensions -> Apps Script
- *  3. Delete whatever is there, paste this whole file in
- *  4. Click Deploy -> New deployment -> gear icon -> Web app
- *       Execute as:        Me
- *       Who has access:    Anyone
- *  5. Deploy, authorize when asked, then COPY THE WEB APP URL
- *  6. Paste that URL into the draft room: Admin tab -> Google Sheet backup
- *
- * Every pick lands in two places:
- *   - "Draft Log"         a running list, newest at the bottom (always works)
- *   - "Live Draft Board"  the grid, one pick per cell (configure below)
+ *  1. Master Sheet -> Extensions -> Apps Script
+ *  2. Delete everything, paste this file in, save
+ *  3. Deploy -> New deployment -> gear -> Web app
+ *       Execute as:      Me
+ *       Who has access:  Anyone      <- required
+ *  4. Deploy, authorize, copy the web app URL
+ *  5. Draft room -> Admin -> Google Sheet backup -> paste URL -> Save
+ *  6. Click "Build board layout", then "Send test row"
  */
 
-// ============ CONFIG — adjust these to match your sheet ============
-
+// ================== CONFIG ==================
 var LOG_TAB   = 'Draft Log';
 var BOARD_TAB = '2026 Live Draft Board';
 
-// Where the grid starts. Round 1 / Pick 1 goes in this cell.
-var BOARD_FIRST_ROW = 2;   // row 2
-var BOARD_FIRST_COL = 2;   // column B
+// LAYOUT: 'seats' puts each team in a fixed column with snake arrows (matches
+//         your 2026 Draft Board). 'pickorder' numbers columns Pick 1..Pick 12.
+var LAYOUT = 'seats';
 
-// Grid shape: 12 pick columns across, 32 round rows down.
-var PICKS_PER_ROUND = 12;
+var HEADER_ROW      = 1;   // team names live here
+var BOARD_FIRST_ROW = 2;   // round 1 goes in this row
+var ROUND_COL_LEFT  = 1;   // column A — round number
+var ARROW_COL_LEFT  = 2;   // column B — direction arrow
+var BOARD_FIRST_COL = 3;   // column C — first team column
+var TEAMS_ACROSS    = 12;
+var ARROW_COL_RIGHT = 15;  // column O
+var ROUND_COL_RIGHT = 16;  // column P
 
-// How a traded pick is marked. Set by you — see notes at the bottom.
-var TRADE_PREFIX = '* ';           // e.g. "* Josh Allen"
-var TRADE_NOTE   = true;           // also add a cell note saying who it came from
+// Traded picks
+var TRADE_PREFIX = '* ';
+var TRADE_NOTE   = true;
+var TRADE_COLOR  = '#b45309';
 
-// Write the drafting team's name under the player name?
-var INCLUDE_TEAM_IN_CELL = true;
-var TEAM_SEPARATOR = '\n';         // player name, newline, team name
-
-// ===================================================================
+var INCLUDE_TEAM_IN_CELL = true;   // second line shows who actually drafted
+var TEAM_SEPARATOR = '\n';
+// ============================================
 
 function doPost(e) {
   var out = { ok: true, written: 0, errors: [] };
   try {
     var body = JSON.parse(e.postData.contents);
-    var picks = body.picks || [];
     var ss = SpreadsheetApp.getActiveSpreadsheet();
 
-    var log = ss.getSheetByName(LOG_TAB);
-    if (!log) {
-      log = ss.insertSheet(LOG_TAB);
-      log.appendRow(['Timestamp','Overall','Round','Slot','Player','Sport','Pos',
-                     'Drafted by','Owner','Traded?','Original team','Auto-pick?']);
-      log.setFrozenRows(1);
+    if (body.setup) {
+      buildBoard(ss, body.setup);
+      out.setup = true;
+      return json(out);
     }
 
+    var picks = body.picks || [];
+    var log = getLog(ss);
     var board = ss.getSheetByName(BOARD_TAB);
 
     for (var i = 0; i < picks.length; i++) {
@@ -68,10 +68,7 @@ function doPost(e) {
           p.traded ? p.origTeam : '',
           p.auto ? 'auto' : ''
         ]);
-
-        if (board && p.overall > 0) {
-          writeToBoard(board, p);
-        }
+        if (board && p.overall > 0) writeToBoard(board, p);
         out.written++;
       } catch (err) {
         out.errors.push('pick ' + p.overall + ': ' + err);
@@ -81,14 +78,37 @@ function doPost(e) {
     out.ok = false;
     out.errors.push(String(err));
   }
-  return ContentService
-    .createTextOutput(JSON.stringify(out))
+  return json(out);
+}
+
+function json(o) {
+  return ContentService.createTextOutput(JSON.stringify(o))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+function getLog(ss) {
+  var log = ss.getSheetByName(LOG_TAB);
+  if (!log) {
+    log = ss.insertSheet(LOG_TAB);
+    log.appendRow(['Timestamp','Overall','Round','Slot','Player','Sport','Pos',
+                   'Drafted by','Owner','Traded?','Original team','Auto-pick?']);
+    log.setFrozenRows(1);
+  }
+  return log;
+}
+
+/** Which column does this pick belong in? */
+function colFor(p) {
+  if (LAYOUT === 'seats') {
+    // seatIndex is 1-12 and already accounts for the snake
+    return BOARD_FIRST_COL + (p.seatIndex - 1);
+  }
+  return BOARD_FIRST_COL + (p.slot - 1);
 }
 
 function writeToBoard(board, p) {
   var row = BOARD_FIRST_ROW + (p.round - 1);
-  var col = BOARD_FIRST_COL + (p.slot - 1);
+  var col = colFor(p);
 
   var text = p.player;
   if (p.traded) text = TRADE_PREFIX + text;
@@ -98,54 +118,98 @@ function writeToBoard(board, p) {
   cell.setValue(text);
   cell.setWrap(true);
   cell.setVerticalAlignment('top');
+  cell.setHorizontalAlignment('center');
+  cell.setFontSize(9);
 
   if (p.traded) {
     if (TRADE_NOTE) {
-      cell.setNote('TRADED PICK\nOriginally ' + p.origTeam + ' (' + p.origOwner + ')' +
-                   '\nDrafted by ' + p.team + ' (' + p.owner + ')' +
-                   '\nOverall #' + p.overall);
+      cell.setNote('TRADED PICK\n' +
+                   'Seat belongs to ' + p.origTeam + ' (' + p.origOwner + ')\n' +
+                   'Drafted by ' + p.team + ' (' + p.owner + ')\n' +
+                   'Round ' + p.round + ' · overall #' + p.overall);
     }
-    cell.setFontColor('#b45309');   // amber so traded picks stand out
+    cell.setFontColor(TRADE_COLOR);
     cell.setFontStyle('italic');
+    cell.setBackground('#fdf6e7');
   } else {
+    cell.setNote(null);
     cell.setFontColor(null);
     cell.setFontStyle('normal');
+    cell.setBackground(null);
   }
 }
 
-/** Optional: run once from the editor to lay out an empty board grid. */
-function setupBoardGrid() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+/** Lays out the board: headers, round numbers, snake arrows. Player cells untouched. */
+function buildBoard(ss, cfg) {
   var board = ss.getSheetByName(BOARD_TAB) || ss.insertSheet(BOARD_TAB);
-  board.getRange(BOARD_FIRST_ROW - 1, BOARD_FIRST_COL - 1).setValue('Round');
-  for (var c = 0; c < PICKS_PER_ROUND; c++) {
-    board.getRange(BOARD_FIRST_ROW - 1, BOARD_FIRST_COL + c)
-         .setValue('Pick ' + (c + 1)).setFontWeight('bold');
+  var seats  = cfg.seats  || [];
+  var owners = cfg.owners || [];
+  var rounds = cfg.rounds || 32;
+
+  board.getRange(HEADER_ROW, ROUND_COL_LEFT).setValue('Rd').setFontWeight('bold');
+  board.getRange(HEADER_ROW, ROUND_COL_RIGHT).setValue('Rd').setFontWeight('bold');
+
+  for (var c = 0; c < TEAMS_ACROSS; c++) {
+    var label = LAYOUT === 'seats'
+      ? (seats[c] || ('Seat ' + (c + 1))) + (owners[c] ? '\n' + owners[c] : '')
+      : 'Pick ' + (c + 1);
+    board.getRange(HEADER_ROW, BOARD_FIRST_COL + c)
+         .setValue(label)
+         .setFontWeight('bold')
+         .setWrap(true)
+         .setHorizontalAlignment('center')
+         .setFontSize(9);
+    board.setColumnWidth(BOARD_FIRST_COL + c, 110);
   }
-  for (var r = 0; r < 32; r++) {
-    board.getRange(BOARD_FIRST_ROW + r, BOARD_FIRST_COL - 1)
-         .setValue(r + 1).setFontWeight('bold');
+
+  for (var r = 0; r < rounds; r++) {
+    var row = BOARD_FIRST_ROW + r;
+    var arrow = (r % 2 === 0) ? '--->' : '<---';
+    board.getRange(row, ROUND_COL_LEFT).setValue(r + 1)
+         .setFontWeight('bold').setHorizontalAlignment('center');
+    board.getRange(row, ROUND_COL_RIGHT).setValue(r + 1)
+         .setFontWeight('bold').setHorizontalAlignment('center');
+    board.getRange(row, ARROW_COL_LEFT).setValue(arrow)
+         .setHorizontalAlignment('center').setFontColor('#888780');
+    board.getRange(row, ARROW_COL_RIGHT).setValue(arrow)
+         .setHorizontalAlignment('center').setFontColor('#888780');
+    board.setRowHeight(row, 32);
+
+    // faint banding so rows are easy to follow across 12 columns
+    if (r % 2 === 1) {
+      board.getRange(row, BOARD_FIRST_COL, 1, TEAMS_ACROSS).setBackground('#f8f8f6');
+    }
   }
-  board.setFrozenRows(BOARD_FIRST_ROW - 1);
-  board.setFrozenColumns(BOARD_FIRST_COL - 1);
+
+  board.setColumnWidth(ROUND_COL_LEFT, 36);
+  board.setColumnWidth(ARROW_COL_LEFT, 44);
+  board.setColumnWidth(ARROW_COL_RIGHT, 44);
+  board.setColumnWidth(ROUND_COL_RIGHT, 36);
+  board.setRowHeight(HEADER_ROW, 40);
+  board.setFrozenRows(HEADER_ROW);
+  board.setFrozenColumns(ARROW_COL_LEFT);
+}
+
+/** Wipes every player cell but leaves the layout. Handy after a mock draft. */
+function clearPicks() {
+  var board = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(BOARD_TAB);
+  if (!board) return;
+  var rng = board.getRange(BOARD_FIRST_ROW, BOARD_FIRST_COL, 32, TEAMS_ACROSS);
+  rng.clearContent();
+  rng.clearNote();
+  rng.setFontColor(null);
+  rng.setFontStyle('normal');
 }
 
 /* ---------------------------------------------------------------
-   NOTES ON TRADED PICKS
-
-   Each pick arrives with these fields, so you can mark trades however
-   you like by editing writeToBoard() above:
-
-     p.traded      true if this pick changed hands
-     p.team        the team that actually made the pick
-     p.owner       that team's owner name
-     p.origTeam    the team the pick originally belonged to
-     p.origOwner   that team's owner name
-     p.overall     overall pick number, 1-384
-     p.round       1-32
-     p.slot        1-12, position within the round
-
-   Right now a traded pick gets: "* Player Name", amber italic text, and a
-   hover note naming the original team. Tell me the convention you want and
-   I will change this one function — no change to the website needed.
+   Each pick arrives with:
+     p.player p.sport p.pos
+     p.team p.owner            who actually made the pick
+     p.origTeam p.origOwner    whose seat that column is
+     p.traded                  true if the pick changed hands
+     p.round  1-32
+     p.slot   1-12  position in the round (pick order)
+     p.seatIndex 1-12  fixed seat column, snake already applied
+     p.overall 1-384
+     p.direction  '--->' or '<---'
 --------------------------------------------------------------- */
