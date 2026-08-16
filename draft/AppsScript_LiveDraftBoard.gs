@@ -32,10 +32,25 @@ var TEAMS_ACROSS    = 12;
 var ARROW_COL_RIGHT = 15;  // column O
 var ROUND_COL_RIGHT = 16;  // column P
 
-// Traded picks
+// Background colour per sport. Change these hex values to taste.
+var SPORT_BG = {
+  NFL: '#FCEBEB',   // soft red
+  NBA: '#E6F1FB',   // soft blue
+  MLB: '#FAEEDA'    // soft amber
+};
+// Matching dark text so it stays readable on the tint
+var SPORT_FG = {
+  NFL: '#791F1F',
+  NBA: '#0C447C',
+  MLB: '#633806'
+};
+var NO_SPORT_BG = '#F1EFE8';   // used when a pick has no sport recorded
+var NO_SPORT_FG = '#2C2C2A';
+
+// Traded picks — marked with the prefix, italics and a note.
+// Background is reserved for the sport, so trades are shown by text instead.
 var TRADE_PREFIX = '* ';
 var TRADE_NOTE   = true;
-var TRADE_COLOR  = '#b45309';
 
 var INCLUDE_TEAM_IN_CELL = true;   // second line shows who actually drafted
 var TEAM_SEPARATOR = '\n';
@@ -121,22 +136,44 @@ function writeToBoard(board, p) {
   cell.setHorizontalAlignment('center');
   cell.setFontSize(9);
 
+  // background = sport
+  var bg = SPORT_BG[p.sport] || NO_SPORT_BG;
+  var fg = SPORT_FG[p.sport] || NO_SPORT_FG;
+  cell.setBackground(bg);
+  cell.setFontColor(fg);
+
+  // traded = asterisk + italics + hover note (background is taken by the sport)
   if (p.traded) {
+    cell.setFontStyle('italic');
     if (TRADE_NOTE) {
       cell.setNote('TRADED PICK\n' +
                    'Seat belongs to ' + p.origTeam + ' (' + p.origOwner + ')\n' +
                    'Drafted by ' + p.team + ' (' + p.owner + ')\n' +
                    'Round ' + p.round + ' · overall #' + p.overall);
     }
-    cell.setFontColor(TRADE_COLOR);
-    cell.setFontStyle('italic');
-    cell.setBackground('#fdf6e7');
   } else {
-    cell.setNote(null);
-    cell.setFontColor(null);
     cell.setFontStyle('normal');
-    cell.setBackground(null);
+    cell.setNote(null);
   }
+}
+
+/** Adds a small colour key under the board. Called by buildBoard. */
+function writeLegend(board, rounds) {
+  var row = BOARD_FIRST_ROW + rounds + 1;
+  board.getRange(row, ROUND_COL_LEFT).setValue('Key').setFontWeight('bold');
+  var sports = ['NFL', 'NBA', 'MLB'];
+  for (var i = 0; i < sports.length; i++) {
+    var c = board.getRange(row, BOARD_FIRST_COL + i);
+    c.setValue(sports[i])
+     .setBackground(SPORT_BG[sports[i]])
+     .setFontColor(SPORT_FG[sports[i]])
+     .setHorizontalAlignment('center')
+     .setFontWeight('bold');
+  }
+  board.getRange(row, BOARD_FIRST_COL + 3)
+       .setValue('* italic = traded pick')
+       .setFontStyle('italic')
+       .setFontColor('#5F5E5A');
 }
 
 /** Lays out the board: headers, round numbers, snake arrows. Player cells untouched. */
@@ -174,11 +211,6 @@ function buildBoard(ss, cfg) {
     board.getRange(row, ARROW_COL_RIGHT).setValue(arrow)
          .setHorizontalAlignment('center').setFontColor('#888780');
     board.setRowHeight(row, 32);
-
-    // faint banding so rows are easy to follow across 12 columns
-    if (r % 2 === 1) {
-      board.getRange(row, BOARD_FIRST_COL, 1, TEAMS_ACROSS).setBackground('#f8f8f6');
-    }
   }
 
   board.setColumnWidth(ROUND_COL_LEFT, 36);
@@ -188,6 +220,7 @@ function buildBoard(ss, cfg) {
   board.setRowHeight(HEADER_ROW, 40);
   board.setFrozenRows(HEADER_ROW);
   board.setFrozenColumns(ARROW_COL_LEFT);
+  writeLegend(board, rounds);
 }
 
 /** Wipes every player cell but leaves the layout. Handy after a mock draft. */
@@ -199,6 +232,7 @@ function clearPicks() {
   rng.clearNote();
   rng.setFontColor(null);
   rng.setFontStyle('normal');
+  rng.setBackground(null);
 }
 
 /* ---------------------------------------------------------------
