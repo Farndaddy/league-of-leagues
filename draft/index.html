@@ -280,6 +280,40 @@ td.empty{color:#3d4a5f}
     </div>
 
     <div class="sec">
+      <h3>Timer schedule</h3>
+      <label class="toggle" style="margin-bottom:10px">
+        <input type="checkbox" id="aSchedOn">
+        <div>
+          <b>Change the clock automatically by time of day</b>
+          <span>When on, the timer follows the blocks below and the manual timer buttons are ignored.</span>
+        </div>
+      </label>
+      <div id="aSchedRows"></div>
+      <div class="arow" style="margin-top:8px">
+        <button class="btn sm gray" id="aSchedAdd">Add block</button>
+        <button class="btn sm gray" id="aSchedPlanA">Load Plan A</button>
+        <button class="btn sm green" id="aSchedSave">Save schedule</button>
+        <span class="sm muted" id="aSchedNow"></span>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h3>Google Sheet backup</h3>
+      <p class="sm muted" style="margin:0 0 10px">
+        Every pick is copied into your Live Draft Board tab. Paste the Apps Script web app link here.
+      </p>
+      <div class="arow">
+        <input id="aHook" type="text" placeholder="https://script.google.com/macros/s/.../exec" style="flex:1;min-width:260px">
+        <button class="btn sm green" id="aHookSave">Save link</button>
+      </div>
+      <div class="arow">
+        <button class="btn sm gray" id="aHookTest">Send test row</button>
+        <button class="btn sm gray" id="aResync">Re-sync every pick</button>
+        <span class="sm muted" id="aHookMsg"></span>
+      </div>
+    </div>
+
+    <div class="sec">
       <h3>Make a pick for someone / add off-list player</h3>
       <div class="arow">
         <input id="aPlayer" type="text" placeholder="Player name" style="width:200px">
@@ -399,7 +433,11 @@ const saveSession = ()=>localStorage.setItem('lolDraft',JSON.stringify({me:ME,ad
 
 /* ===== Live state ===== */
 let S = {status:'setup',cur:0,timerMin:60,extraMs:0,startedAt:0,
-         quietOn:true,quietS:23,quietE:8};
+         quietOn:true,quietS:23,quietE:7,
+         schedOn:false,
+         // Plan A: 15-min all day, 3-min power block 6-10pm, 10-min tail
+         sched:[{h:7,m:0,t:15},{h:18,m:0,t:3},{h:22,m:0,t:10}],
+         sheetHook:''};
 let PICKS = {};      // overallIndex -> {p,sport,pos,team,at,auto}
 let OVER  = {};      // overallIndex -> teamId (admin reassignments)
 let QUEUES= {};      // teamId -> {auto:bool,list:[{p,sport,pos}]}
@@ -434,10 +472,19 @@ function quietMs(from,to){
   for(let t=from;t<to;t+=step) if(inQuiet(new Date(t))) q+=Math.min(step,to-t);
   return q;
 }
+/* the clock length in force right now — from the schedule if it's on */
+function effectiveTimer(){
+  if(!S.schedOn||!Array.isArray(S.sched)||!S.sched.length) return S.timerMin;
+  const n=new Date(), mins=n.getHours()*60+n.getMinutes();
+  const b=S.sched.slice().sort((a,c)=>(a.h*60+a.m)-(c.h*60+c.m));
+  let cur=b[b.length-1];                 // before the first block = last block carries over
+  for(const x of b) if(mins>=x.h*60+x.m) cur=x;
+  return cur.t;
+}
 function msLeft(){
   if(S.status!=='live'||!S.startedAt) return null;
   const now=Date.now();
-  const budget=S.timerMin*60000+(S.extraMs||0);
+  const budget=effectiveTimer()*60000+(S.extraMs||0);
   const used=(now-S.startedAt)-quietMs(S.startedAt,now);
   return budget-used;
 }
@@ -462,6 +509,46 @@ onValue(R('log'), s=>{ LOG=Object.values(s.val()||{}); paintLog(); });
 const pushLog = txt => set(R('log/'+Date.now()+Math.floor(Math.random()*99)),
   {t:Date.now(),txt});
 
+/* ===== Google Sheet mirror =====
+   Every pick is POSTed to a Google Apps Script web app, which writes it into
+   the Live Draft Board tab. Fire-and-forget: if it fails, the pick is queued
+   in this browser and retried. Firebase stays the source of truth. */
+const QKEY='lolMirrorQueue';
+const qGet=()=>{ try{return JSON.parse(localStorage.getItem(QKEY)||'[]')}catch(e){return[]} };
+const qSet=a=>localStorage.setItem(QKEY,JSON.stringify(a.slice(-500)));
+
+function pickPayload(idx,p){
+  const tid=p.team, own=ownerOf(idx), orig=origOwner(idx);
+  return {
+    overall:idx+1, round:roundOf(idx), slot:slotOf(idx),
+    teamId:tid, team:team(tid).name, owner:team(tid).owner,
+    player:p.p, sport:p.sport||'', pos:p.pos||'',
+    traded: orig!==own,
+    origTeamId:orig, origTeam:team(orig).name, origOwner:team(orig).owner,
+    auto:!!p.auto, at:p.at||Date.now()
+  };
+}
+async function mirror(rows){
+  const url=(S.sheetHook||'').trim();
+  if(!url){ return {ok:false,msg:'No Sheet link set'} ; }
+  try{
+    await fetch(url,{method:'POST',mode:'no-cors',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},   // text/plain avoids CORS preflight
+      body:JSON.stringify({picks:rows})});
+    return {ok:true};
+  }catch(e){
+    const q=qGet(); rows.forEach(r=>q.push(r)); qSet(q);
+    return {ok:false,msg:String(e)};
+  }
+}
+async function flushQueue(){
+  const q=qGet(); if(!q.length||!(S.sheetHook||'').trim()) return;
+  qSet([]);
+  const r=await mirror(q);
+  if(r.ok) console.log('Mirrored '+q.length+' queued pick(s) to the Sheet');
+}
+setInterval(flushQueue,60000);
+
 /* ===== Advance / expiry ===== */
 async function advance(fromIdx,reason){
   await runTransaction(R('state'),cur=>{
@@ -479,9 +566,11 @@ async function submitPick(idx,player,sport,pos,byAuto){
   const dup=Object.values(PICKS).some(x=>x.p.toLowerCase()===player.toLowerCase());
   if(dup) return {ok:false,msg:player+' has already been drafted.'};
   const tid=ownerOf(idx);
-  await set(R('picks/'+idx),{p:player,sport:sport||'',pos:pos||'',
-    team:tid,at:Date.now(),auto:!!byAuto});
+  const rec={p:player,sport:sport||'',pos:pos||'',
+    team:tid,at:Date.now(),auto:!!byAuto};
+  await set(R('picks/'+idx),rec);
   pushLog(`${team(tid).name} — Rd ${roundOf(idx)} (#${idx+1}) — ${player}${byAuto?' (auto)':''}`);
+  mirror([pickPayload(idx,rec)]);   // fire-and-forget to the Google Sheet
   if(idx===S.cur) await advance(idx,null);
   return {ok:true};
 }
@@ -530,7 +619,7 @@ function enter(){
   $('app').classList.remove('hide');
   $('tabAdmin').classList.toggle('hide',!ADMIN);
   $('hWho').textContent = ME ? (team(ME).name + (ADMIN?' · ADMIN':'')) : 'Spectating';
-  loadPool(); paintAll();
+  loadPool(); paintAll(); flushQueue();
 }
 /* auto-enter is deliberately at the BOTTOM of this file — see note there */
 
@@ -823,6 +912,66 @@ $('aReassignGo').onclick=async()=>{
   pushLog(`TRADE: pick #${p+1} → ${team(t).name}`);
   $('aReassignP').value=''; };
 
+/* ---- timer schedule editor ---- */
+let SCHED=null;
+const hhmm=(h,m)=>String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
+function paintSched(){
+  const host=$('aSchedRows'); if(!host||!ADMIN) return;
+  if(!SCHED) SCHED=(S.sched||[]).map(x=>({...x}));
+  host.innerHTML=SCHED.map((b,i)=>`
+    <div class="qrow">
+      <span class="num">${i+1}</span>
+      <span class="sm muted">from</span>
+      <input type="time" data-time="${i}" value="${hhmm(b.h,b.m)}" style="width:120px">
+      <span class="sm muted">use a</span>
+      <input type="number" data-min="${i}" value="${b.t}" min="1" max="600" style="width:80px">
+      <span class="sm muted">min clock</span>
+      <button class="ic" data-del="${i}">✕</button>
+    </div>`).join('')||'<div class="muted sm">No blocks — the manual timer is used.</div>';
+  host.querySelectorAll('[data-time]').forEach(el=>el.onchange=e=>{
+    const [h,m]=e.target.value.split(':').map(Number);
+    SCHED[+e.target.dataset.time].h=h; SCHED[+e.target.dataset.time].m=m; paintSched(); });
+  host.querySelectorAll('[data-min]').forEach(el=>el.onchange=e=>{
+    SCHED[+e.target.dataset.min].t=Math.max(1,+e.target.value||1); paintSched(); });
+  host.onclick=e=>{ const d=e.target.dataset.del;
+    if(d!==undefined){ SCHED.splice(+d,1); paintSched(); } };
+  const n=$('aSchedNow');
+  if(n) n.textContent='Clock in force right now: '+effectiveTimer()+' min'
+    +(S.schedOn?' (schedule on)':' (schedule off)');
+}
+$('aSchedAdd').onclick=()=>{ if(!SCHED)SCHED=[]; SCHED.push({h:12,m:0,t:15}); paintSched(); };
+$('aSchedPlanA').onclick=()=>{ SCHED=[{h:7,m:0,t:15},{h:18,m:0,t:3},{h:22,m:0,t:10}]; paintSched(); };
+$('aSchedSave').onclick=async()=>{
+  const clean=(SCHED||[]).slice().sort((a,b)=>(a.h*60+a.m)-(b.h*60+b.m));
+  await update(R('state'),{sched:clean,schedOn:$('aSchedOn').checked});
+  pushLog('Timer schedule saved: '+clean.map(b=>hhmm(b.h,b.m)+'→'+b.t+'m').join(', ')
+    +($('aSchedOn').checked?' (on)':' (off)'));
+  SCHED=null; paintSched();
+};
+$('aSchedOn').onchange=e=>update(R('state'),{schedOn:e.target.checked});
+
+/* ---- Google Sheet backup ---- */
+$('aHookSave').onclick=async()=>{
+  const u=$('aHook').value.trim();
+  await update(R('state'),{sheetHook:u});
+  $('aHookMsg').textContent=u?'Saved.':'Cleared.';
+};
+$('aHookTest').onclick=async()=>{
+  $('aHookMsg').textContent='Sending…';
+  const r=await mirror([{overall:0,round:0,slot:0,teamId:'test',team:'TEST ROW',
+    owner:'—',player:'Test connection',sport:'NFL',pos:'—',traded:false,
+    origTeamId:'test',origTeam:'TEST ROW',origOwner:'—',auto:false,at:Date.now()}]);
+  $('aHookMsg').textContent=r.ok?'Sent — look for a TEST ROW in the Sheet.':'Failed: '+r.msg;
+};
+$('aResync').onclick=async()=>{
+  const ks=Object.keys(PICKS).map(Number).sort((a,b)=>a-b);
+  if(!ks.length) return alert('No picks to sync yet.');
+  if(!confirm(`Re-send all ${ks.length} picks to the Sheet?`)) return;
+  $('aHookMsg').textContent='Sending '+ks.length+'…';
+  const r=await mirror(ks.map(i=>pickPayload(i,PICKS[i])));
+  $('aHookMsg').textContent=r.ok?`Sent ${ks.length} picks.`:'Failed: '+r.msg;
+};
+
 /* ---- seat order editor ---- */
 function paintSeatEditor(){
   const host=$('aSeat'); if(!host||!ADMIN) return;
@@ -922,8 +1071,11 @@ function paintAll(){
   if(!$('v-board').classList.contains('hide')) paintBoard();
   if(!$('v-rosters').classList.contains('hide')) paintRosters();
   if(ADMIN){
-    $('aState').textContent=`Status: ${S.status} · on pick #${S.cur+1} of ${TOTAL} · timer ${S.timerMin}m`+
-      (S.extraMs?` (+${Math.round(S.extraMs/60000)}m)`:'');
+    $('aState').textContent=`Status: ${S.status} · on pick #${S.cur+1} of ${TOTAL} · clock ${effectiveTimer()}m`+
+      (S.schedOn?' (from schedule)':'')+(S.extraMs?` (+${Math.round(S.extraMs/60000)}m)`:'');
+    $('aSchedOn').checked=!!S.schedOn;
+    if(document.activeElement!==$('aHook')) $('aHook').value=S.sheetHook||'';
+    if(!SCHED) paintSched();
     $('aQuietOn').checked=!!S.quietOn;
     if(document.activeElement!==$('aQuietS')) $('aQuietS').value=S.quietS;
     if(document.activeElement!==$('aQuietE')) $('aQuietE').value=S.quietE;
