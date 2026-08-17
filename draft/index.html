@@ -113,6 +113,18 @@ td.sp-MLB .pk{color:#fbd88a}
 td.now{background:#1d3557;box-shadow:inset 0 0 0 2px var(--acc)}
 td.miss{background:#3a1f1f}
 td.empty{color:#3d4a5f}
+.home2{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}
+.hcol{min-width:0}
+@media(max-width:820px){ .home2{grid-template-columns:1fr} }
+.statcard{background:linear-gradient(180deg,var(--panel2),var(--panel))}
+.onnow{font-size:17px;font-weight:800;margin-bottom:10px;line-height:1.25}
+.statgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
+.statgrid>div{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:8px 10px}
+.statgrid b{display:block;font-size:19px;font-variant-numeric:tabular-nums;margin-top:2px}
+.slbl{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);font-weight:700}
+.nextup{font-size:13px;color:var(--mut);border-top:1px solid var(--line);padding-top:9px}
+.nextup b{color:var(--txt)}
+.nextup .soon{color:var(--good);font-weight:700}
 .pfilters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;align-items:flex-end}
 .pfilters>div{min-width:130px}
 .pfilters .lbl{margin:0 0 4px}
@@ -228,30 +240,63 @@ td.empty{color:#3d4a5f}
   <section id="v-pick">
     <div id="pBanner"></div>
 
-    <div id="pPicker" class="hide">
-      <div class="sec" style="margin-bottom:12px">
-        <div class="flex-between mb-16">
-          <h3 style="margin:0">Draft from your queue</h3>
-          <button class="btn sm gray" id="pGoPlayers">Browse all players →</button>
+    <div class="home2">
+      <!-- LEFT -->
+      <div class="hcol">
+        <div class="sec statcard">
+          <div class="onnow" id="pOnNow">—</div>
+          <div class="statgrid">
+            <div><span class="slbl">Round</span><b id="pRound">—</b></div>
+            <div><span class="slbl">Pick</span><b id="pPickNo">—</b></div>
+            <div><span class="slbl">Time left</span><b id="pClock2">—</b></div>
+          </div>
+          <div class="nextup" id="pNext"></div>
         </div>
-        <div id="pQueue"></div>
-      </div>
-      <div class="sec">
-        <h3>Someone not on the list</h3>
-        <div class="arow">
-          <input id="freeName" type="text" placeholder="Type any player name" style="flex:1;min-width:190px">
-          <select id="freeSport" style="width:90px">
-            <option value="">Sport</option><option>NFL</option><option>NBA</option><option>MLB</option>
-          </select>
-          <input id="freePos" type="text" placeholder="Pos" style="width:80px">
-          <button class="btn sm green" id="freeGo">Draft</button>
-        </div>
-      </div>
-    </div>
 
-    <div class="sec" style="margin-top:12px">
-      <h3>Recent picks</h3>
-      <div class="log" id="pRecent"></div>
+        <div class="sec" id="pPicker">
+          <div class="flex-between mb-16">
+            <h3 style="margin:0">Your queue</h3>
+            <button class="btn sm gray" id="pGoPlayers">Browse players →</button>
+          </div>
+          <div id="pQueue"></div>
+          <div id="pFree" class="hide" style="margin-top:12px;border-top:1px solid var(--line);padding-top:11px">
+            <div class="lbl">Someone not on the list</div>
+            <div class="arow">
+              <input id="freeName" type="text" placeholder="Player name" style="flex:1;min-width:150px">
+              <select id="freeSport" style="width:88px">
+                <option value="">Sport</option><option>NFL</option><option>NBA</option><option>MLB</option>
+              </select>
+              <input id="freePos" type="text" placeholder="Pos" style="width:72px">
+              <button class="btn sm green" id="freeGo">Draft</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="sec">
+          <h3>Recent picks</h3>
+          <div class="log" id="pRecent"></div>
+        </div>
+      </div>
+
+      <!-- RIGHT -->
+      <div class="hcol">
+        <div class="sec">
+          <div class="flex-between mb-16">
+            <h3 style="margin:0">Your roster</h3>
+            <div class="pills" id="pRosSport">
+              <button class="pill pill-nfl active" data-s="NFL">NFL</button>
+              <button class="pill pill-nba" data-s="NBA">NBA</button>
+              <button class="pill pill-mlb" data-s="MLB">MLB</button>
+            </div>
+          </div>
+          <div id="pRoster"></div>
+        </div>
+
+        <div class="sec">
+          <h3>Your draft results</h3>
+          <div id="pMine"></div>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -306,9 +351,9 @@ td.empty{color:#3d4a5f}
   <!-- BOARD -->
   <section id="v-board" class="hide">
     <div class="sportfilter" id="bMode">
-      <button class="sf on" data-m="grid">Roster grid</button>
-      <button class="sf" data-m="board">Draft board</button>
-      <button class="sf" data-m="order">In pick order</button>
+      <button class="sf on" data-m="board">Draft board</button>
+      <button class="sf" data-m="order">Pick order</button>
+      <button class="sf" data-m="grid">Roster grid</button>
     </div>
     <div class="arow" id="bGridCtl">
       <div class="pills" id="bSport">
@@ -933,12 +978,49 @@ function renderPick(){
   bn.innerHTML=html;
 
   const canPick=slots.length>0;
-  $('pPicker').classList.toggle('hide',!canPick);
-  if(!canPick){ paintLog(); return; }
+  $('pFree').classList.toggle('hide',!canPick);
 
-  // your queue, ready to draft in one tap
+  /* ---- status card ---- */
+  const T=actingTeam();
+  if(S.status==='live'&&S.cur<TOTAL){
+    const oc=ownerOf(S.cur);
+    $('pOnNow').innerHTML = oc===T
+      ? '<span style="color:var(--good)">You are on the clock</span>'
+      : `On the clock: ${esc(team(oc).name)} <span class="sm muted">${esc(team(oc).owner)}</span>`;
+    $('pRound').textContent=roundOf(S.cur);
+    $('pPickNo').textContent='#'+(S.cur+1);
+  } else {
+    $('pOnNow').textContent = S.status==='setup' ? 'Draft has not started'
+      : S.status==='paused' ? 'Draft paused' : 'Draft complete';
+    $('pRound').textContent='—'; $('pPickNo').textContent='—';
+  }
+
+  /* ---- your next two picks ---- */
+  const missed=[], upcoming=[];
+  for(let i=0;i<TOTAL;i++){
+    if(PICKS[i]||ownerOf(i)!==T) continue;
+    (i<S.cur?missed:upcoming).push(i);
+  }
+  let nx='';
+  if(!T) nx='Sign in with your team PIN to see your picks.';
+  else if(S.status!=='live') nx='';
+  else {
+    const parts=[];
+    if(missed.length) parts.push(`<span class="soon">${missed.length} skipped pick${missed.length>1?'s':''} you can still make</span>`);
+    upcoming.slice(0,2).forEach(i=>{
+      const away=i-S.cur;
+      parts.push(away===0
+        ? '<span class="soon">on the clock now</span>'
+        : `<b>#${i+1}</b> (Rd ${roundOf(i)}) — ${away} pick${away>1?'s':''} away`);
+    });
+    if(!parts.length) parts.push('No picks left.');
+    nx='Your next: '+parts.join(' · ');
+  }
+  $('pNext').innerHTML=nx;
+
+  /* ---- your queue ---- */
   const gone=taken();
-  const q=(QUEUES[actingTeam()]&&QUEUES[actingTeam()].list)||[];
+  const q=(QUEUES[T]&&QUEUES[T].list)||[];
   const live=q.filter(x=>!gone.has(x.p.toLowerCase()));
   const el=$('pQueue');
   el.innerHTML = live.length
@@ -946,22 +1028,65 @@ function renderPick(){
         <span class="rk">${i+1}</span>
         ${x.sport?`<span class="pill ${x.sport}">${x.sport}</span>`:''}
         <div class="nm">${esc(x.p)}<span class="meta"> · ${esc(x.pos||'')}</span></div>
-        <button class="btn sm green" data-pick="${esc(x.p)}" data-sp="${esc(x.sport||'')}" data-po="${esc(x.pos||'')}">Draft</button>
+        ${canPick?`<button class="btn sm green" data-pick="${esc(x.p)}" data-sp="${esc(x.sport||'')}" data-po="${esc(x.pos||'')}">Draft</button>`:''}
       </div>`).join('')
-    : `<div class="prow"><div class="nm muted">${q.length
+    : `<div class="prow"><div class="nm muted">${!T?'Not signed in.':q.length
         ? 'Everyone in your queue is already taken.'
-        : 'Your queue is empty — browse the Players tab and tap +Q to line players up.'}</div></div>`;
-
+        : 'Queue is empty — tap +Q on the Players tab.'}</div></div>`;
   el.onclick=async e=>{
-    const b=e.target.closest('[data-pick]'); if(!b) return;
-    const nm=b.dataset.pick;
+    const bt=e.target.closest('[data-pick]'); if(!bt) return;
+    const nm=bt.dataset.pick;
     if(!confirm(`Draft ${nm}?`)) return;
-    b.disabled=true;
-    const res=await submitPick(slots[0],nm,b.dataset.sp,b.dataset.po,false);
-    if(!res.ok){ alert(res.msg); b.disabled=false; }
-    else { const rest=q.filter(x=>x.p!==nm); set(R('queues/'+actingTeam()+'/list'),rest); }
+    bt.disabled=true;
+    const res=await submitPick(slots[0],nm,bt.dataset.sp,bt.dataset.po,false);
+    if(!res.ok){ alert(res.msg); bt.disabled=false; }
+    else set(R('queues/'+T+'/list'),q.filter(x=>x.p!==nm));
   };
+
+  paintMyRoster();
+  paintMyPicks();
   paintLog();
+}
+
+let pRosSport='NFL';
+$('pRosSport').onclick=e=>{ const b=e.target.closest('.pill'); if(!b) return;
+  pRosSport=b.dataset.s;
+  $('pRosSport').querySelectorAll('.pill').forEach(x=>x.classList.toggle('active',x===b));
+  paintMyRoster(); };
+
+function paintMyRoster(){
+  const T=actingTeam(), host=$('pRoster'); if(!host) return;
+  if(!T){ host.innerHTML='<div class="muted sm">Not signed in.</div>'; return; }
+  const list=rosterOf(T,POSMAP()).filter(x=>x.sport===pRosSport);
+  const {slots,overflow}=fillSlots(pRosSport,list);
+  const open=slots.filter(x=>!x.player).length;
+  host.innerHTML=`<div class="sm muted mb-16">${slots.length-open} of ${slots.length} filled`
+    +(open?` · needs ${open}`:' · full')+`</div>`
+    + slots.map(s=>`<div class="rline">
+        <span class="slot${s.player?'':' open'}">${esc(s.slot)}</span>
+        ${s.player?`<span class="nm">${esc(s.player.p)}</span>`
+                  +(s.player.kpr?'<span class="kpr">KPR</span>':`<span class="rd">Rd ${s.player.rd}</span>`)
+                  :'<span class="nm muted">— open —</span>'}
+      </div>`).join('')
+    + (overflow.length?`<div class="poshd" style="margin-top:8px">Over the limit<span>${overflow.length}</span></div>`
+        +overflow.map(x=>rosterLine(x)).join(''):'');
+}
+
+function paintMyPicks(){
+  const T=actingTeam(), host=$('pMine'); if(!host) return;
+  if(!T){ host.innerHTML='<div class="muted sm">Not signed in.</div>'; return; }
+  const mine=Object.keys(PICKS).map(Number).sort((a,b)=>a-b).filter(i=>PICKS[i].team===T);
+  const keeps=(KEEPERS[T]||[]);
+  host.innerHTML = (mine.length||keeps.length)
+    ? keeps.map(k=>`<div class="rline">
+         ${k.sport?`<span class="pill ${k.sport}">${k.sport}</span>`:''}
+         <span class="nm">${esc(k.p)}</span><span class="kpr">KPR</span></div>`).join('')
+      + mine.map(i=>{ const p=PICKS[i];
+        return `<div class="rline">
+          ${p.sport?`<span class="pill ${p.sport}">${p.sport}</span>`:'<span class="pill" style="opacity:.35">—</span>'}
+          <span class="nm">${esc(p.p)}</span>
+          <span class="rd">Rd ${roundOf(i)} · #${i+1}</span></div>`;}).join('')
+    : '<div class="muted sm">No picks yet.</div>';
 }
 
 function paintLog(){
@@ -972,7 +1097,7 @@ function paintLog(){
 }
 
 /* ===== RESULTS — three views ===== */
-let bMode='grid', bSport='NFL';
+let bMode='board', bSport='NFL';
 $('bMode').onclick=e=>{ const b=e.target.closest('.sf'); if(!b) return;
   bMode=b.dataset.m;
   $('bMode').querySelectorAll('.sf').forEach(x=>x.classList.toggle('on',x===b));
