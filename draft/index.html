@@ -380,6 +380,36 @@ td.empty{color:#3d4a5f}
     </div>
 
     <div class="sec">
+      <h3>Draft for another team</h3>
+      <p class="sm muted" style="margin:0 0 10px">
+        Pick a team here and the Pick tab and Players page act as that team — you can
+        draft for them from anywhere, including any pick of theirs that got skipped.
+      </p>
+      <div class="arow">
+        <select id="aActing" style="width:230px"></select>
+        <button class="btn sm" id="aActGo">Act as this team</button>
+        <button class="btn sm gray" id="aActClear">Back to my team</button>
+      </div>
+      <div class="sm muted" id="aActMsg"></div>
+      <div class="arow" style="margin-top:10px">
+        <span class="sm muted">Or draft straight into a pick:</span>
+        <select id="aSlot" style="width:210px"></select>
+        <input id="aSlotPlayer" type="text" placeholder="Player name" style="width:190px" list="aSlotSuggest">
+        <datalist id="aSlotSuggest"></datalist>
+        <button class="btn sm green" id="aSlotGo">Draft</button>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h3>Co-admins</h3>
+      <p class="sm muted" style="margin:0 0 10px">
+        Give another owner admin rights. They sign in with their own team PIN and get
+        the Admin tab — no code to share. Toggle off any time.
+      </p>
+      <div id="aCoList"></div>
+    </div>
+
+    <div class="sec">
       <h3>Keepers</h3>
       <p class="sm muted" style="margin:0 0 10px">
         3 per sport, 9 per team. Keepers show on rosters tagged KPR and can't be drafted again.
@@ -561,10 +591,34 @@ function baseOwner(i){                    // after trades follow their team
 }
 
 /* ===== Local session ===== */
-let ME = null, ADMIN = false;
+/* MASTER = signed in with the admin code. COADMIN = granted by an admin.
+   ADMIN is recomputed from both whenever either changes. */
+let ME = null, MASTER = false, ADMIN = false;
+let COADMIN = {};          // teamId -> true
+let ACTING = null;         // admin drafting on behalf of this team
+const actingTeam = () => (ADMIN && ACTING) ? ACTING : ME;
+function recomputeAdmin(){
+  const was = ADMIN;
+  ADMIN = MASTER || !!(ME && COADMIN[ME]);
+  if(was !== ADMIN && !$('app').classList.contains('hide')){
+    $('tabAdmin').classList.toggle('hide',!ADMIN);
+    paintWho();
+    if(!ADMIN){ ACTING=null; $('v-admin').classList.add('hide'); }
+  }
+  return ADMIN;
+}
+function paintWho(){
+  const el=$('hWho'); if(!el) return;
+  if(!ME){ el.textContent='Spectating'; return; }
+  let s=team(ME).name;
+  if(MASTER) s+=' · ADMIN';
+  else if(ADMIN) s+=' · CO-ADMIN';
+  if(ADMIN && ACTING && ACTING!==ME) s+=` · acting as ${team(ACTING).name}`;
+  el.textContent=s;
+}
 try{ const s=JSON.parse(localStorage.getItem('lolDraft')||'null');
-     if(s){ ME=s.me; ADMIN=!!s.admin; } }catch(e){}
-const saveSession = ()=>localStorage.setItem('lolDraft',JSON.stringify({me:ME,admin:ADMIN}));
+     if(s){ ME=s.me; MASTER=!!s.master; } }catch(e){}
+const saveSession = ()=>localStorage.setItem('lolDraft',JSON.stringify({me:ME,master:MASTER}));
 
 /* ===== Live state ===== */
 let S = {status:'setup',cur:0,timerMin:60,extraMs:0,startedAt:0,
@@ -661,6 +715,7 @@ onValue(R('picks'), s=>{ PICKS=s.val()||{}; paintAll(); });
 onValue(R('overrides'), s=>{ OVER=s.val()||{}; paintAll(); });
 onValue(R('queues'), s=>{ QUEUES=s.val()||{}; paintQueue(); });
 onValue(R('keepers'), s=>{ KEEPERS=s.val()||{}; paintAll(); paintKeepers(); });
+onValue(R('coadmins'), s=>{ COADMIN=s.val()||{}; recomputeAdmin(); paintAll(); paintCoAdmins(); });
 onValue(R('log'), s=>{ LOG=Object.values(s.val()||{}); paintLog(); });
 
 const pushLog = txt => set(R('log/'+Date.now()+Math.floor(Math.random()*99)),
@@ -770,18 +825,19 @@ TEAMS.forEach(t=>{ const o=document.createElement('option');
 
 $('jGo').onclick=()=>{
   const id=jTeam.value, pin=$('jPin').value.trim();
-  if(pin===ADMIN_CODE){ ME=id; ADMIN=true; saveSession(); enter(); return; }
+  if(pin===ADMIN_CODE){ ME=id; MASTER=true; saveSession(); enter(); return; }
   if(pin!==team(id).pin){ $('jErr').textContent='That PIN doesn’t match this team.'; return; }
-  ME=id; ADMIN=false; saveSession(); enter();
+  ME=id; MASTER=false; saveSession(); enter();
 };
 $('jPin').addEventListener('keydown',e=>{ if(e.key==='Enter') $('jGo').click(); });
-$('jWatch').onclick=()=>{ ME=null; ADMIN=false; saveSession(); enter(); };
+$('jWatch').onclick=()=>{ ME=null; MASTER=false; saveSession(); enter(); };
 
 function enter(){
   $('join').classList.add('hide');
   $('app').classList.remove('hide');
+  recomputeAdmin();
   $('tabAdmin').classList.toggle('hide',!ADMIN);
-  $('hWho').textContent = ME ? (team(ME).name + (ADMIN?' · ADMIN':'')) : 'Spectating';
+  paintWho();
   loadPool(); paintAll(); flushQueue();
 }
 /* auto-enter is deliberately at the BOTTOM of this file — see note there */
@@ -823,11 +879,12 @@ $('pSearch').addEventListener('input',renderPick);
 
 // which pick slots can I fill right now? (current + any of my earlier skipped slots)
 function myOpenSlots(){
-  if(!ME) return [];
+  if(!actingTeam()) return [];
   const out=[];
-  if(S.status==='live'&&S.cur<TOTAL&&ownerOf(S.cur)===ME&&!PICKS[S.cur]) out.push(S.cur);
+  const T=actingTeam();
+  if(S.status==='live'&&S.cur<TOTAL&&ownerOf(S.cur)===T&&!PICKS[S.cur]) out.push(S.cur);
   for(let i=0;i<Math.min(S.cur,TOTAL);i++)
-    if(!PICKS[i]&&ownerOf(i)===ME) out.push(i);
+    if(!PICKS[i]&&ownerOf(i)===T) out.push(i);
   return [...new Set(out)].sort((a,b)=>a-b);
 }
 
@@ -840,7 +897,9 @@ function renderPick(){
   else if(S.status==='paused') html=`<div class="banner pause"><b>Draft paused by the commissioner.</b></div>`;
   else if(slots.length){
     const isNow=slots[0]===S.cur;
-    html=`<div class="banner you"><b>You’re on the clock.</b>
+    const forOther = ADMIN && ACTING && ACTING!==ME;
+    html=`<div class="banner ${forOther?'pause':'you'}">
+      <b>${forOther?`Drafting for ${esc(team(ACTING).name)}`:'You’re on the clock.'}</b>
       ${isNow?`Round ${roundOf(S.cur)}, pick #${S.cur+1}.`:''}
       ${slots.length>1||!isNow?`<span class="sm">${slots.length} open pick${slots.length>1?'s':''} — filling #${slots[0]+1} (Rd ${roundOf(slots[0])})</span>`:''}
       ${inQuiet(new Date())?'<span class="sm">Clock is frozen for quiet hours — pick whenever you like.</span>':''}
@@ -1300,6 +1359,80 @@ $('aReassignGo').onclick=async()=>{
   pushLog(`TRADE: pick #${p+1} → ${team(t).name}`);
   $('aReassignP').value=''; };
 
+/* ---- act as another team ---- */
+const aAct=$('aActing');
+TEAMS.forEach(t=>{ const o=document.createElement('option');
+  o.value=t.id; o.textContent=`${t.name} — ${t.owner}`; aAct.appendChild(o); });
+$('aActGo').onclick=()=>{
+  ACTING=$('aActing').value;
+  paintWho(); paintActing(); renderPick(); paintPlayers();
+};
+$('aActClear').onclick=()=>{
+  ACTING=null; paintWho(); paintActing(); renderPick(); paintPlayers();
+};
+function paintActing(){
+  const m=$('aActMsg'); if(!m) return;
+  m.textContent = ACTING && ACTING!==ME
+    ? `Acting as ${team(ACTING).name}. Anything you draft goes to them.`
+    : 'Acting as yourself.';
+  m.style.color = (ACTING&&ACTING!==ME) ? 'var(--warn)' : 'var(--mut)';
+  // open picks across the whole draft, any team
+  const sel=$('aSlot'); if(!sel) return;
+  const keep=sel.value;
+  const open=[];
+  for(let i=0;i<TOTAL;i++){
+    if(PICKS[i]) continue;
+    if(i>S.cur) continue;                       // not reached yet
+    open.push(i);
+  }
+  sel.innerHTML = open.length
+    ? open.map(i=>`<option value="${i}">#${i+1} · Rd ${roundOf(i)} · ${esc(team(ownerOf(i)).name)}${i===S.cur?' (on the clock)':' (skipped)'}</option>`).join('')
+    : '<option value="">No open picks</option>';
+  if(open.map(String).includes(keep)) sel.value=keep;
+}
+$('aSlotPlayer').addEventListener('input',()=>{
+  const q=$('aSlotPlayer').value.toLowerCase().trim();
+  const dl=$('aSlotSuggest');
+  if(q.length<2||!POOL.length){ dl.innerHTML=''; return; }
+  const gone=taken();
+  dl.innerHTML=POOL.filter(p=>!gone.has(p.p.toLowerCase())&&p.p.toLowerCase().includes(q))
+    .slice(0,20).map(p=>`<option value="${esc(p.p)}">${p.sport} ${esc(p.pos||'')}</option>`).join('');
+});
+$('aSlotGo').onclick=async()=>{
+  const idx=parseInt($('aSlot').value,10);
+  const nm=$('aSlotPlayer').value.trim();
+  if(isNaN(idx)||!nm) return;
+  const hit=POOL.find(p=>p.p.toLowerCase()===nm.toLowerCase());
+  if(!confirm(`Draft ${nm} to ${team(ownerOf(idx)).name} at pick #${idx+1}?`)) return;
+  const r=await submitPick(idx,nm,hit?hit.sport:'',hit?hit.pos:'',false);
+  if(!r.ok) alert(r.msg);
+  else { $('aSlotPlayer').value=''; pushLog(`Admin drafted ${nm} for ${team(ownerOf(idx)).name} (#${idx+1})`); }
+};
+
+/* ---- co-admins ---- */
+function paintCoAdmins(){
+  const host=$('aCoList'); if(!host||!ADMIN) return;
+  host.innerHTML=TEAMS.map(t=>`
+    <label class="qrow" style="cursor:pointer">
+      <input type="checkbox" data-co="${t.id}" ${COADMIN[t.id]?'checked':''}
+        style="width:20px;height:20px;accent-color:var(--acc)">
+      <span class="nm">${esc(t.name)} <span class="sm muted">${esc(t.owner)}</span></span>
+      ${COADMIN[t.id]?'<span class="kpr">CO-ADMIN</span>':''}
+    </label>`).join('');
+  host.querySelectorAll('[data-co]').forEach(cb=>cb.onchange=async e=>{
+    const tid=e.target.dataset.co;
+    if(e.target.checked){
+      await set(R('coadmins/'+tid),true);
+      pushLog(`${team(tid).name} granted co-admin`);
+    } else {
+      if(tid===ME&&!MASTER&&!confirm('Remove your own co-admin rights? You will lose the Admin tab.')){
+        e.target.checked=true; return; }
+      await set(R('coadmins/'+tid),null);
+      pushLog(`${team(tid).name} co-admin removed`);
+    }
+  });
+}
+
 /* ---- timer schedule editor ---- */
 let SCHED=null;
 const hhmm=(h,m)=>String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
@@ -1462,6 +1595,7 @@ $('aReset2').onclick=async()=>{
   await set(R('log'),null);
   await set(R('overrides'),null);     // admin pick reassignments
   await set(R('queues'),null);        // every team's queue + autopick flag
+  await set(R('coadmins'),null);      // co-admin grants
   await update(R('state'),{status:'setup',cur:0,startedAt:0,extraMs:0});
   localStorage.removeItem(QKEY);      // any unsent picks waiting in this browser
 
@@ -1491,6 +1625,8 @@ function paintAll(){
     if(document.activeElement!==$('aHook')) $('aHook').value=S.sheetHook||'';
     if(!SCHED) paintSched();
     paintKeepers();
+    paintCoAdmins();
+    paintActing();
     $('aQuietOn').checked=!!S.quietOn;
     if(document.activeElement!==$('aQuietS')) $('aQuietS').value=S.quietS;
     if(document.activeElement!==$('aQuietE')) $('aQuietE').value=S.quietE;
