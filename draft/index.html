@@ -227,13 +227,28 @@ td.empty{color:#3d4a5f}
   <!-- PICK -->
   <section id="v-pick">
     <div id="pBanner"></div>
+
     <div id="pPicker" class="hide">
-      <div class="sportfilter" id="pSports"></div>
-      <div class="search">
-        <input id="pSearch" type="text" placeholder="Search players…" autocomplete="off">
+      <div class="sec" style="margin-bottom:12px">
+        <div class="flex-between mb-16">
+          <h3 style="margin:0">Draft from your queue</h3>
+          <button class="btn sm gray" id="pGoPlayers">Browse all players →</button>
+        </div>
+        <div id="pQueue"></div>
       </div>
-      <div class="plist" id="pList"></div>
+      <div class="sec">
+        <h3>Someone not on the list</h3>
+        <div class="arow">
+          <input id="freeName" type="text" placeholder="Type any player name" style="flex:1;min-width:190px">
+          <select id="freeSport" style="width:90px">
+            <option value="">Sport</option><option>NFL</option><option>NBA</option><option>MLB</option>
+          </select>
+          <input id="freePos" type="text" placeholder="Pos" style="width:80px">
+          <button class="btn sm green" id="freeGo">Draft</button>
+        </div>
+      </div>
     </div>
+
     <div class="sec" style="margin-top:12px">
       <h3>Recent picks</h3>
       <div class="log" id="pRecent"></div>
@@ -652,7 +667,6 @@ let KEEPERS={};      // teamId -> [{p,sport,pos}]
 let LOG   = [];
 let POOL  = [];      // player pool
 let poolLoaded = false;
-let sportFilter = 'ALL';   // declared up here — renderPick() reads it on first paint
 let SEATDRAFT = null;      // ditto for the admin seat editor
 
 /* ===== Player pool ===== */
@@ -887,13 +901,6 @@ setInterval(()=>{
 },500);
 
 /* ===== PICK view ===== */
-$('pSports').innerHTML=['ALL','NFL','NBA','MLB'].map(s=>
-  `<button class="sf${s==='ALL'?' on':''}" data-s="${s}">${s}</button>`).join('');
-$('pSports').onclick=e=>{ const b=e.target.closest('.sf'); if(!b) return;
-  sportFilter=b.dataset.s;
-  $('pSports').querySelectorAll('.sf').forEach(x=>x.classList.toggle('on',x===b));
-  renderPick(); };
-$('pSearch').addEventListener('input',renderPick);
 
 // which pick slots can I fill right now? (current + any of my earlier skipped slots)
 function myOpenSlots(){
@@ -929,50 +936,30 @@ function renderPick(){
   $('pPicker').classList.toggle('hide',!canPick);
   if(!canPick){ paintLog(); return; }
 
+  // your queue, ready to draft in one tap
   const gone=taken();
-  const q=($('pSearch').value||'').toLowerCase().trim();
-  let list=POOL.filter(p=>!gone.has(p.p.toLowerCase()));
-  if(sportFilter!=='ALL') list=list.filter(p=>p.sport===sportFilter);
-  if(q) list=list.filter(p=>p.p.toLowerCase().includes(q));
-  list=list.slice(0,120);
+  const q=(QUEUES[actingTeam()]&&QUEUES[actingTeam()].list)||[];
+  const live=q.filter(x=>!gone.has(x.p.toLowerCase()));
+  const el=$('pQueue');
+  el.innerHTML = live.length
+    ? live.map((x,i)=>`<div class="prow">
+        <span class="rk">${i+1}</span>
+        ${x.sport?`<span class="pill ${x.sport}">${x.sport}</span>`:''}
+        <div class="nm">${esc(x.p)}<span class="meta"> · ${esc(x.pos||'')}</span></div>
+        <button class="btn sm green" data-pick="${esc(x.p)}" data-sp="${esc(x.sport||'')}" data-po="${esc(x.pos||'')}">Draft</button>
+      </div>`).join('')
+    : `<div class="prow"><div class="nm muted">${q.length
+        ? 'Everyone in your queue is already taken.'
+        : 'Your queue is empty — browse the Players tab and tap +Q to line players up.'}</div></div>`;
 
-  const el=$('pList');
-  if(!poolLoaded){
-    el.innerHTML=`<div class="prow"><div class="nm">No player list loaded yet.
-      <span class="meta">Type a name below to draft anyone.</span></div></div>
-      <div class="prow"><input id="freeName" type="text" placeholder="Player name">
-      <button class="btn sm green" id="freeGo">Draft</button></div>`;
-  } else if(!list.length){
-    el.innerHTML=`<div class="prow"><div class="nm muted">No players match.</div></div>
-      <div class="prow"><input id="freeName" type="text" placeholder="Draft a player not on the list">
-      <button class="btn sm green" id="freeGo">Draft</button></div>`;
-  } else {
-    el.innerHTML=list.map(p=>`<div class="prow">
-      <span class="pill ${p.sport}">${p.sport}</span>
-      <div class="nm">${esc(p.p)}<span class="meta"> · ${esc(p.pos||'')} ${esc(p.tm||'')}</span></div>
-      <button class="ic" data-q="${esc(p.p)}">+Q</button>
-      <button class="btn sm green" data-pick="${esc(p.p)}" data-sp="${p.sport}" data-po="${esc(p.pos||'')}">Draft</button>
-      </div>`).join('');
-  }
   el.onclick=async e=>{
-    const q=e.target.closest('[data-q]');
-    if(q){ addToQueue(q.dataset.q); q.textContent='✓'; return; }
-    const b=e.target.closest('[data-pick]');
-    if(b){
-      const nm=b.dataset.pick;
-      if(!confirm(`Draft ${nm}?`)) return;
-      b.disabled=true;
-      const r=await submitPick(slots[0],nm,b.dataset.sp,b.dataset.po,false);
-      if(!r.ok){ alert(r.msg); b.disabled=false; }
-      return;
-    }
-    if(e.target.id==='freeGo'){
-      const nm=($('freeName').value||'').trim();
-      if(!nm) return;
-      if(!confirm(`Draft ${nm}?`)) return;
-      const r=await submitPick(slots[0],nm,'','',false);
-      if(!r.ok) alert(r.msg);
-    }
+    const b=e.target.closest('[data-pick]'); if(!b) return;
+    const nm=b.dataset.pick;
+    if(!confirm(`Draft ${nm}?`)) return;
+    b.disabled=true;
+    const res=await submitPick(slots[0],nm,b.dataset.sp,b.dataset.po,false);
+    if(!res.ok){ alert(res.msg); b.disabled=false; }
+    else { const rest=q.filter(x=>x.p!==nm); set(R('queues/'+actingTeam()+'/list'),rest); }
   };
   paintLog();
 }
@@ -1141,6 +1128,18 @@ function paintQueue(){
     else if(rm!==undefined){ l.splice(+rm,1); set(R('queues/'+ME+'/list'),l); }
   };
 }
+
+$('pGoPlayers').onclick=()=>{
+  document.querySelector('.tab[data-v="players"]').click();
+};
+$('freeGo').onclick=async()=>{
+  const slots=myOpenSlots(); if(!slots.length) return;
+  const nm=($('freeName').value||'').trim(); if(!nm) return;
+  if(!confirm(`Draft ${nm}?`)) return;
+  const r=await submitPick(slots[0],nm,$('freeSport').value,$('freePos').value.trim(),false);
+  if(!r.ok) alert(r.msg);
+  else { $('freeName').value=''; $('freePos').value=''; }
+};
 
 /* ===== PLAYERS PAGE ===== */
 const DEFAULT_RANK={NFL:'pre',NBA:'dyn',MLB:'dyn'};
