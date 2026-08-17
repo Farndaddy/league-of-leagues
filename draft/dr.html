@@ -1406,56 +1406,6 @@ function paintPlayers(){
 /* ===== shared roster helpers ===== */
 const CAPS={NFL:17,NBA:20,MLB:23};
 
-/* roster slot structures */
-const SLOTS={
-  NFL:['QB','RB','RB','WR','WR','WR','TE','Flex','Flex','IDP','IDP','DEF','B','B','B','B','B'],
-  NBA:['PG','SG','SF','PF','C','C','G','G','F','F','UT','UT','UT','UT','UT','UT','B','B','B','B'],
-  MLB:['C','1B','2B','3B','SS','OF','OF','OF','OF','MI','CI','UT','SP','P','P','P','P','P','P','P','RP','B','B'],
-};
-/* which player positions may fill each slot */
-const ELIG={
-  QB:['QB'], RB:['RB'], WR:['WR'], TE:['TE'],
-  Flex:['RB','WR','TE'],
-  IDP:['LB','DE','DT','CB','S'],
-  DEF:['DST'],
-  PG:['PG'], SG:['SG'], SF:['SF'], PF:['PF'],
-  G:['PG','SG'], F:['SF','PF'],
-  '1B':['1B'], '2B':['2B'], '3B':['3B'], SS:['SS'],
-  OF:['OF','LF','CF','RF'],
-  MI:['2B','SS'], CI:['1B','3B'],
-  SP:['SP'], RP:['RP'], P:['SP','RP'],
-  C:['C'],
-};
-const posTokens = p => String(p.pos||'').split(',').map(s=>s.trim().toUpperCase()).filter(Boolean);
-function fits(slot,player){
-  if(slot==='B') return true;
-  if(slot==='UT'){
-    if(player.sport==='NBA') return true;
-    return posTokens(player).every(t=>!['SP','RP','P'].includes(t));
-  }
-  return posTokens(player).some(t=>(ELIG[slot]||[]).includes(t));
-}
-/* greedy fill: scarcest slots first so a C isn't wasted in a UT */
-function fillSlots(sport,players){
-  const slots=(SLOTS[sport]||[]).map(s=>({slot:s,player:null}));
-  const order=[...slots.keys()].sort((a,b)=>{
-    const rank=s=>s==='B'?3:s==='UT'?2:['Flex','G','F','MI','CI','P'].includes(s)?1:0;
-    return rank(slots[a].slot)-rank(slots[b].slot);
-  });
-  const left=players.slice();
-  for(const i of order){
-    const s=slots[i];
-    let best=-1,bestN=1e9;
-    left.forEach((pl,j)=>{
-      if(!fits(s.slot,pl)) return;
-      const n=slots.filter(x=>!x.player&&fits(x.slot,pl)).length;
-      if(n<bestN){ bestN=n; best=j; }
-    });
-    if(best>=0) s.player=left.splice(best,1)[0];
-  }
-  return {slots,overflow:left};
-}
-
 function rosterOf(teamId,pm){
   const out=[];
   (KEEPERS[teamId]||[]).forEach(k=>out.push({
