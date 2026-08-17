@@ -112,6 +112,21 @@ td.sp-MLB .pk{color:#fbd88a}
 td.now{background:#1d3557;box-shadow:inset 0 0 0 2px var(--acc)}
 td.miss{background:#3a1f1f}
 td.empty{color:#3d4a5f}
+.posgrp{margin-bottom:9px}
+.poshd{display:flex;justify-content:space-between;font-size:11px;font-weight:700;
+  color:var(--mut);text-transform:uppercase;letter-spacing:.05em;
+  border-bottom:1px solid var(--line);padding-bottom:3px;margin-bottom:4px}
+.rline{display:flex;align-items:center;gap:7px;padding:3px 0;font-size:13px}
+.rline .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rline .rd{font-size:11px;color:var(--mut)}
+.kpr{font-size:10px;font-weight:800;color:#f59e0b;background:#f59e0b18;
+  border:1px solid #f59e0b44;border-radius:4px;padding:1px 5px;letter-spacing:.03em}
+.mine{font-size:10px;font-weight:700;color:var(--acc);background:#4f9dff1a;
+  border:1px solid #4f9dff44;border-radius:4px;padding:1px 5px;vertical-align:2px}
+.ct-NFL{color:var(--nfl)} .ct-NBA{color:var(--nba)} .ct-MLB{color:var(--mlb)}
+.ktag{display:inline-block;font-size:11px;background:var(--panel2);
+  border:1px solid var(--line);border-radius:5px;padding:2px 6px;margin:2px 0}
+.ktag b{cursor:pointer;color:var(--bad);margin-left:5px}
 .legend{display:flex;gap:14px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--mut)}
 .legend i{display:inline-block;width:11px;height:11px;border-radius:3px;
   margin-right:5px;vertical-align:-1px}
@@ -250,6 +265,17 @@ td.empty{color:#3d4a5f}
 
   <!-- ROSTERS -->
   <section id="v-rosters" class="hide">
+    <div class="sportfilter" id="rSports">
+      <button class="sf on" data-s="ALL">All sports</button>
+      <button class="sf" data-s="NFL">NFL</button>
+      <button class="sf" data-s="NBA">NBA</button>
+      <button class="sf" data-s="MLB">MLB</button>
+    </div>
+    <div class="arow mb-16">
+      <label class="sm muted"><input type="checkbox" id="rByPos" checked style="width:auto"> Group by position</label>
+      <label class="sm muted"><input type="checkbox" id="rMineFirst" checked style="width:auto"> My team first</label>
+      <span class="sm muted" id="rNote"></span>
+    </div>
     <div class="grid2" id="rGrid"></div>
   </section>
 
@@ -294,6 +320,25 @@ td.empty{color:#3d4a5f}
         <button class="btn sm" id="aQuietGo">Save</button>
         <span class="sm muted">(24hr clock — clock freezes, but whoever is up can still pick)</span>
       </div>
+    </div>
+
+    <div class="sec">
+      <h3>Keepers</h3>
+      <p class="sm muted" style="margin:0 0 10px">
+        3 per sport, 9 per team. Keepers show on rosters tagged KPR and can't be drafted again.
+      </p>
+      <div class="arow">
+        <select id="kTeam" style="width:220px"></select>
+        <select id="kSport" style="width:90px">
+          <option>NFL</option><option>NBA</option><option>MLB</option>
+        </select>
+        <input id="kPlayer" type="text" placeholder="Player name" style="width:200px" list="kSuggest">
+        <datalist id="kSuggest"></datalist>
+        <input id="kPos" type="text" placeholder="Pos" style="width:70px">
+        <button class="btn sm green" id="kAdd">Add keeper</button>
+      </div>
+      <div class="sm muted mb-16" id="kMsg"></div>
+      <div id="kList"></div>
     </div>
 
     <div class="sec">
@@ -474,6 +519,7 @@ let S = {status:'setup',cur:0,timerMin:60,extraMs:0,startedAt:0,
 let PICKS = {};      // overallIndex -> {p,sport,pos,team,at,auto}
 let OVER  = {};      // overallIndex -> teamId (admin reassignments)
 let QUEUES= {};      // teamId -> {auto:bool,list:[{p,sport,pos}]}
+let KEEPERS={};      // teamId -> [{p,sport,pos}]
 let LOG   = [];
 let POOL  = [];      // player pool
 let poolLoaded = false;
@@ -490,7 +536,24 @@ async function loadPool(){
   renderPick();
 }
 const ownerOf = i => OVER[i] || baseOwner(i);
-const taken = () => new Set(Object.values(PICKS).map(x=>x.p.toLowerCase()));
+/* a player is off the board if drafted OR kept by anyone */
+const taken = () => {
+  const s=new Set(Object.values(PICKS).map(x=>x.p.toLowerCase()));
+  Object.values(KEEPERS).forEach(list=>(list||[]).forEach(k=>s.add(k.p.toLowerCase())));
+  return s;
+};
+/* position lookup — from the pick itself, else the player pool */
+const POSMAP = () => { const m={}; POOL.forEach(p=>m[p.p.toLowerCase()]={pos:p.pos,sport:p.sport}); return m; };
+function posOf(name,given,pm){
+  if(given) return given;
+  const hit=(pm||POSMAP())[String(name).toLowerCase()];
+  return hit&&hit.pos ? hit.pos : '';
+}
+function sportOf(name,given,pm){
+  if(given) return given;
+  const hit=(pm||POSMAP())[String(name).toLowerCase()];
+  return hit&&hit.sport ? hit.sport : '';
+}
 
 /* ===== Quiet hours ===== */
 function inQuiet(d){
@@ -537,6 +600,7 @@ onValue(R('seatOrder'), s=>{
 onValue(R('picks'), s=>{ PICKS=s.val()||{}; paintAll(); });
 onValue(R('overrides'), s=>{ OVER=s.val()||{}; paintAll(); });
 onValue(R('queues'), s=>{ QUEUES=s.val()||{}; paintQueue(); });
+onValue(R('keepers'), s=>{ KEEPERS=s.val()||{}; paintAll(); paintKeepers(); });
 onValue(R('log'), s=>{ LOG=Object.values(s.val()||{}); paintLog(); });
 
 const pushLog = txt => set(R('log/'+Date.now()+Math.floor(Math.random()*99)),
@@ -872,24 +936,135 @@ function paintQueue(){
   };
 }
 
-/* ===== ROSTERS ===== */
-function paintRosters(){
-  const by={}; TEAMS.forEach(t=>by[t.id]=[]);
+/* ===== ROSTERS — by sport, by position, keepers tagged KPR ===== */
+let rosterSport='ALL';
+$('rSports').onclick=e=>{ const b=e.target.closest('.sf'); if(!b) return;
+  rosterSport=b.dataset.s;
+  $('rSports').querySelectorAll('.sf').forEach(x=>x.classList.toggle('on',x===b));
+  paintRosters(); };
+$('rByPos').onchange=paintRosters;
+$('rMineFirst').onchange=paintRosters;
+
+const CAPS={NFL:17,NBA:20,MLB:23};
+
+function rosterOf(teamId,pm){
+  const out=[];
+  (KEEPERS[teamId]||[]).forEach(k=>out.push({
+    p:k.p, sport:sportOf(k.p,k.sport,pm), pos:posOf(k.p,k.pos,pm),
+    kpr:true, rd:null }));
   Object.keys(PICKS).map(Number).sort((a,b)=>a-b).forEach(i=>{
-    const p=PICKS[i]; if(by[p.team]) by[p.team].push({...p,i});
+    const x=PICKS[i]; if(x.team!==teamId) return;
+    out.push({ p:x.p, sport:sportOf(x.p,x.sport,pm), pos:posOf(x.p,x.pos,pm),
+               kpr:false, rd:roundOf(i) });
   });
-  $('rGrid').innerHTML=TEAMS.map(t=>{
-    const l=by[t.id];
-    const c={NFL:0,NBA:0,MLB:0};
-    l.forEach(x=>{ if(c[x.sport]!==undefined) c[x.sport]++; });
-    return `<div class="tcard"><h3>${esc(t.name)}</h3>
-      <div class="cnt">${esc(t.owner)} · ${l.length} picks ·
-        <span style="color:var(--nfl)">NFL ${c.NFL}/17</span> ·
-        <span style="color:var(--nba)">NBA ${c.NBA}/20</span> ·
-        <span style="color:var(--mlb)">MLB ${c.MLB}/23</span></div>
-      <ol>${l.map(x=>`<li>${esc(x.p)} <span class="muted sm">(Rd ${roundOf(x.i)})</span></li>`).join('')}</ol>
-      </div>`;
+  return out;
+}
+
+function paintRosters(){
+  const pm=POSMAP();
+  const byPos=$('rByPos').checked;
+  let order=TEAMS.slice();
+  if($('rMineFirst').checked&&ME) order.sort((a,b)=>(a.id===ME?-1:b.id===ME?1:0));
+
+  const anyPos=Object.values(PICKS).some(x=>x.pos)||POOL.length>0;
+  $('rNote').textContent = anyPos ? '' :
+    'No positions yet — they appear once the player list is loaded.';
+
+  $('rGrid').innerHTML=order.map(t=>{
+    let list=rosterOf(t.id,pm);
+    const counts={NFL:0,NBA:0,MLB:0};
+    list.forEach(x=>{ if(counts[x.sport]!==undefined) counts[x.sport]++; });
+    if(rosterSport!=='ALL') list=list.filter(x=>x.sport===rosterSport);
+
+    let body='';
+    if(!list.length){
+      body='<div class="muted sm">Nothing yet.</div>';
+    } else if(byPos){
+      const groups={};
+      list.forEach(x=>{ const k=x.pos||'—'; (groups[k]=groups[k]||[]).push(x); });
+      body=Object.keys(groups).sort().map(pos=>
+        `<div class="posgrp"><div class="poshd">${esc(pos)}<span>${groups[pos].length}</span></div>`+
+        groups[pos].map(x=>rosterLine(x)).join('')+`</div>`).join('');
+    } else {
+      body=list.map(x=>rosterLine(x)).join('');
+    }
+
+    const cap=s=>`<span class="${'ct-'+s}">${s} ${counts[s]}/${CAPS[s]}</span>`;
+    return `<div class="tcard">
+      <h3>${esc(t.name)}${t.id===ME?' <span class="mine">you</span>':''}</h3>
+      <div class="cnt">${esc(t.owner)} · ${list.length} shown ·
+        ${cap('NFL')} ${cap('NBA')} ${cap('MLB')}</div>
+      ${body}</div>`;
   }).join('');
+}
+
+function rosterLine(x){
+  return `<div class="rline">
+    ${x.sport?`<span class="pill ${x.sport}">${x.sport}</span>`:'<span class="pill" style="opacity:.35">—</span>'}
+    <span class="nm">${esc(x.p)}</span>
+    ${x.kpr?'<span class="kpr">KPR</span>':`<span class="rd">Rd ${x.rd}</span>`}
+  </div>`;
+}
+
+/* ===== ADMIN — keepers ===== */
+const kT=$('kTeam');
+TEAMS.forEach(t=>{ const o=document.createElement('option');
+  o.value=t.id; o.textContent=t.name; kT.appendChild(o); });
+
+$('kPlayer').addEventListener('input',()=>{
+  const q=$('kPlayer').value.toLowerCase().trim();
+  const dl=$('kSuggest');
+  if(q.length<2||!POOL.length){ dl.innerHTML=''; return; }
+  dl.innerHTML=POOL.filter(p=>p.p.toLowerCase().includes(q)).slice(0,20)
+    .map(p=>`<option value="${esc(p.p)}">${p.sport} ${esc(p.pos||'')}</option>`).join('');
+});
+
+$('kAdd').onclick=async()=>{
+  const tid=$('kTeam').value, sport=$('kSport').value;
+  const name=$('kPlayer').value.trim();
+  if(!name) return;
+  const cur=(KEEPERS[tid]||[]).slice();
+  if(cur.filter(k=>k.sport===sport).length>=3){
+    $('kMsg').textContent=`${team(tid).name} already has 3 ${sport} keepers — remove one first.`;
+    return;
+  }
+  if(taken().has(name.toLowerCase())){
+    $('kMsg').textContent=`${name} is already kept or drafted by someone.`;
+    return;
+  }
+  const hit=POOL.find(p=>p.p.toLowerCase()===name.toLowerCase());
+  cur.push({p:name,sport,pos:$('kPos').value.trim()||(hit?hit.pos:'')||''});
+  await set(R('keepers/'+tid),cur);
+  pushLog(`Keeper added: ${name} (${sport}) → ${team(tid).name}`);
+  $('kPlayer').value=''; $('kPos').value='';
+  $('kMsg').textContent=`Added ${name} to ${team(tid).name}.`;
+};
+
+function paintKeepers(){
+  const host=$('kList'); if(!host||!ADMIN) return;
+  host.innerHTML=TEAMS.map(t=>{
+    const l=KEEPERS[t.id]||[];
+    const c={NFL:0,NBA:0,MLB:0};
+    l.forEach(k=>{ if(c[k.sport]!==undefined) c[k.sport]++; });
+    const done=c.NFL===3&&c.NBA===3&&c.MLB===3;
+    return `<div class="qrow" style="align-items:flex-start;flex-wrap:wrap">
+      <span class="nm" style="flex:0 0 170px">${esc(t.name)}
+        <span class="sm muted">${c.NFL}/3 ${c.NBA}/3 ${c.MLB}/3</span>
+        ${done?'<span class="kpr">complete</span>':''}</span>
+      <span style="flex:1;min-width:200px">${
+        l.length? l.map((k,i)=>`<span class="ktag">${k.sport} ${esc(k.p)}
+          <b data-rm="${t.id}|${i}">✕</b></span>`).join(' ')
+        : '<span class="muted sm">none yet</span>'}</span>
+    </div>`;
+  }).join('');
+  host.onclick=async e=>{
+    const rm=e.target.dataset.rm; if(!rm) return;
+    const [tid,i]=rm.split('|');
+    const l=(KEEPERS[tid]||[]).slice();
+    const gone=l.splice(+i,1)[0];
+    await set(R('keepers/'+tid),l.length?l:null);
+    pushLog(`Keeper removed: ${gone.p} from ${team(tid).name}`);
+  };
 }
 
 /* ===== ADMIN ===== */
@@ -1103,6 +1278,7 @@ $('aReset2').onclick=async()=>{
     '• the activity log\n' +
     '• all pick reassignments made with the Trade buttons\n' +
     '• every team\'s queue\n' +
+    '• NOT keepers — those survive a reset\n' +
     '• the Google Sheet board grid and Draft Log tab\n\n' +
     'Your 145 real traded picks from the 2026 board are NOT affected.\n' +
     'This cannot be undone. Continue?')) return;
@@ -1140,6 +1316,7 @@ function paintAll(){
     $('aSchedOn').checked=!!S.schedOn;
     if(document.activeElement!==$('aHook')) $('aHook').value=S.sheetHook||'';
     if(!SCHED) paintSched();
+    paintKeepers();
     $('aQuietOn').checked=!!S.quietOn;
     if(document.activeElement!==$('aQuietS')) $('aQuietS').value=S.quietS;
     if(document.activeElement!==$('aQuietE')) $('aQuietE').value=S.quietE;
