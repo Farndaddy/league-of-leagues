@@ -112,6 +112,14 @@ td.sp-MLB .pk{color:#fbd88a}
 td.now{background:#1d3557;box-shadow:inset 0 0 0 2px var(--acc)}
 td.miss{background:#3a1f1f}
 td.empty{color:#3d4a5f}
+.pfilters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;align-items:flex-end}
+.pfilters>div{min-width:130px}
+.pfilters .lbl{margin:0 0 4px}
+.rk{font-variant-numeric:tabular-nums;font-weight:800;color:var(--mut);
+  min-width:34px;text-align:right;font-size:12px}
+.prow.gone{opacity:.5}
+.gonetag{font-size:10px;font-weight:700;color:var(--mut);background:var(--panel2);
+  border:1px solid var(--line);border-radius:4px;padding:1px 5px;white-space:nowrap}
 .posgrp{margin-bottom:9px}
 .poshd{display:flex;justify-content:space-between;font-size:11px;font-weight:700;
   color:var(--mut);text-transform:uppercase;letter-spacing:.05em;
@@ -202,6 +210,7 @@ td.empty{color:#3d4a5f}
   </div>
   <nav>
     <button class="tab on" data-v="pick">Pick</button>
+    <button class="tab" data-v="players">Players</button>
     <button class="tab" data-v="board">Board</button>
     <button class="tab" data-v="queue">My Queue</button>
     <button class="tab" data-v="rosters">Rosters</button>
@@ -224,6 +233,46 @@ td.empty{color:#3d4a5f}
       <h3>Recent picks</h3>
       <div class="log" id="pRecent"></div>
     </div>
+  </section>
+
+  <!-- PLAYERS -->
+  <section id="v-players" class="hide">
+    <div class="pfilters">
+      <div>
+        <p class="lbl">Sport</p>
+        <select id="plSport">
+          <option value="NFL">NFL</option>
+          <option value="NBA">NBA</option>
+          <option value="MLB">MLB</option>
+        </select>
+      </div>
+      <div>
+        <p class="lbl">Ranking</p>
+        <select id="plRank">
+          <option value="pre">Pre-season</option>
+          <option value="ros">Rest of season</option>
+          <option value="dyn">Dynasty</option>
+        </select>
+      </div>
+      <div>
+        <p class="lbl">Show</p>
+        <select id="plAvail">
+          <option value="avail">Available only</option>
+          <option value="gone">Drafted &amp; keepers</option>
+          <option value="all">Everyone</option>
+        </select>
+      </div>
+      <div>
+        <p class="lbl">Position</p>
+        <select id="plPos"><option value="ALL">All positions</option></select>
+      </div>
+      <div style="flex:1;min-width:180px">
+        <p class="lbl">Search</p>
+        <input id="plSearch" type="text" placeholder="Player name…" autocomplete="off">
+      </div>
+    </div>
+    <div class="sm muted mb-16" id="plCount"></div>
+    <div class="plist" id="plList" style="max-height:66vh"></div>
   </section>
 
   <!-- BOARD -->
@@ -533,7 +582,10 @@ async function loadPool(){
     if(r.ok){ POOL = await r.json(); poolLoaded=true; }
   }catch(e){}
   if(!poolLoaded) POOL = [];
+  // set each sport's default ranking the first time the pool arrives
+  if(!plUserPickedRank) $('plRank').value=DEFAULT_RANK[$('plSport').value]||'pre';
   renderPick();
+  if(!$('v-players').classList.contains('hide')) paintPlayers();
 }
 const ownerOf = i => OVER[i] || baseOwner(i);
 /* a player is off the board if drafted OR kept by anyone */
@@ -730,8 +782,9 @@ function enter(){
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
   b.classList.add('on');
-  ['pick','board','queue','rosters','admin'].forEach(v=>
+  ['pick','players','board','queue','rosters','admin'].forEach(v=>
     $('v-'+v).classList.toggle('hide',v!==b.dataset.v));
+  if(b.dataset.v==='players') paintPlayers();
   if(b.dataset.v==='board') paintBoard();
   if(b.dataset.v==='rosters') paintRosters();
   if(b.dataset.v==='queue') paintQueue();
@@ -933,6 +986,104 @@ function paintQueue(){
     if(up!==undefined){ const i=+up; if(i>0){ [l[i-1],l[i]]=[l[i],l[i-1]]; set(R('queues/'+ME+'/list'),l);} }
     else if(dn!==undefined){ const i=+dn; if(i<l.length-1){ [l[i+1],l[i]]=[l[i],l[i+1]]; set(R('queues/'+ME+'/list'),l);} }
     else if(rm!==undefined){ l.splice(+rm,1); set(R('queues/'+ME+'/list'),l); }
+  };
+}
+
+/* ===== PLAYERS PAGE ===== */
+const DEFAULT_RANK={NFL:'pre',NBA:'dyn',MLB:'dyn'};
+const RANK_LABEL={pre:'Pre-season',ros:'Rest of season',dyn:'Dynasty'};
+let plUserPickedRank=false;
+
+/* who has this player? returns {by, kpr} or null */
+function holderOf(name){
+  const n=String(name).toLowerCase();
+  for(const [tid,list] of Object.entries(KEEPERS))
+    if((list||[]).some(k=>k.p.toLowerCase()===n)) return {by:tid,kpr:true};
+  for(const [i,p] of Object.entries(PICKS))
+    if(p.p.toLowerCase()===n) return {by:p.team,kpr:false,rd:roundOf(+i)};
+  return null;
+}
+const rankOf=(p,key)=>(p.r&&typeof p.r[key]==='number')?p.r[key]:null;
+
+$('plSport').onchange=()=>{
+  if(!plUserPickedRank) $('plRank').value=DEFAULT_RANK[$('plSport').value]||'pre';
+  paintPlayers();
+};
+$('plRank').onchange=()=>{ plUserPickedRank=true; paintPlayers(); };
+$('plAvail').onchange=paintPlayers;
+$('plPos').onchange=paintPlayers;
+$('plSearch').addEventListener('input',paintPlayers);
+
+function paintPlayers(){
+  const sport=$('plSport').value;
+  const rk=$('plRank').value;
+  const avail=$('plAvail').value;
+  const posSel=$('plPos').value;
+  const q=($('plSearch').value||'').toLowerCase().trim();
+
+  // keep the position dropdown in step with the sport
+  const posSet=[...new Set(POOL.filter(p=>p.sport===sport)
+    .flatMap(p=>String(p.pos||'').split(',').map(s=>s.trim()).filter(Boolean)))].sort();
+  const cur=$('plPos').value;
+  $('plPos').innerHTML='<option value="ALL">All positions</option>'+
+    posSet.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');
+  $('plPos').value=posSet.includes(cur)||cur==='ALL'?cur:'ALL';
+
+  let list=POOL.filter(p=>p.sport===sport);
+  if($('plPos').value!=='ALL')
+    list=list.filter(p=>String(p.pos||'').split(',').map(s=>s.trim()).includes($('plPos').value));
+  if(q) list=list.filter(p=>p.p.toLowerCase().includes(q));
+
+  list=list.map(p=>({...p,_h:holderOf(p.p)}));
+  if(avail==='avail') list=list.filter(p=>!p._h);
+  else if(avail==='gone') list=list.filter(p=>p._h);
+
+  // sort by the chosen ranking; unranked players fall to the bottom alphabetically
+  list.sort((a,b)=>{
+    const ra=rankOf(a,rk), rb=rankOf(b,rk);
+    if(ra!==null&&rb!==null) return ra-rb;
+    if(ra!==null) return -1;
+    if(rb!==null) return 1;
+    return a.p.localeCompare(b.p);
+  });
+
+  const total=list.length;
+  const shown=list.slice(0,300);
+  const ranked=list.filter(p=>rankOf(p,rk)!==null).length;
+  $('plCount').textContent =
+    `${total} player${total===1?'':'s'} · sorted by ${RANK_LABEL[rk]}`+
+    (ranked===0?` · no ${RANK_LABEL[rk].toLowerCase()} rankings loaded for ${sport}`:'')+
+    (total>300?' · showing first 300, use search to narrow':'');
+
+  const slots=myOpenSlots();
+  const canDraft=slots.length>0;
+  const inQ=new Set(myQueue().map(x=>x.p));
+
+  $('plList').innerHTML = shown.length ? shown.map(p=>{
+    const r=rankOf(p,rk);
+    const h=p._h;
+    return `<div class="prow${h?' gone':''}">
+      <span class="rk">${r!==null?r:'–'}</span>
+      <span class="pill ${p.sport}">${p.sport}</span>
+      <div class="nm">${esc(p.p)}<span class="meta"> · ${esc(p.pos||'')}${p.tm?' · '+esc(p.tm):''}</span></div>
+      ${h?`<span class="gonetag">${h.kpr?'KPR':'Rd '+h.rd} ${esc(team(h.by).name)}</span>`
+         :`${ME?`<button class="ic" data-q="${esc(p.p)}"${inQ.has(p.p)?' disabled':''}>${inQ.has(p.p)?'✓':'+Q'}</button>`:''}
+            ${canDraft?`<button class="btn sm green" data-pick="${esc(p.p)}" data-sp="${p.sport}" data-po="${esc(p.pos||'')}">Draft</button>`:''}`}
+    </div>`;
+  }).join('') : `<div class="prow"><div class="nm muted">${
+    POOL.length?'No players match those filters.':'No player list loaded yet.'}</div></div>`;
+
+  $('plList').onclick=async e=>{
+    const q=e.target.closest('[data-q]');
+    if(q){ addToQueue(q.dataset.q); q.textContent='✓'; q.disabled=true; return; }
+    const b=e.target.closest('[data-pick]');
+    if(b){
+      const nm=b.dataset.pick;
+      if(!confirm(`Draft ${nm}?`)) return;
+      b.disabled=true;
+      const res=await submitPick(slots[0],nm,b.dataset.sp,b.dataset.po,false);
+      if(!res.ok){ alert(res.msg); b.disabled=false; }
+    }
   };
 }
 
@@ -1308,6 +1459,7 @@ $('aReset2').onclick=async()=>{
 function paintAll(){
   if($('app').classList.contains('hide')) return;
   renderPick();
+  if(!$('v-players').classList.contains('hide')) paintPlayers();
   if(!$('v-board').classList.contains('hide')) paintBoard();
   if(!$('v-rosters').classList.contains('hide')) paintRosters();
   if(ADMIN){
