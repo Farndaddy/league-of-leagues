@@ -262,6 +262,14 @@ td.empty{color:#3d4a5f}
           <option value="all">Everyone</option>
         </select>
       </div>
+      <div id="plTypeWrap" class="hide">
+        <p class="lbl">Type</p>
+        <select id="plType">
+          <option value="ALL">Batters &amp; pitchers</option>
+          <option value="Batter">Batters only</option>
+          <option value="Pitcher">Pitchers only</option>
+        </select>
+      </div>
       <div>
         <p class="lbl">Position</p>
         <select id="plPos"><option value="ALL">All positions</option></select>
@@ -1005,6 +1013,15 @@ function holderOf(name){
 }
 const rankOf=(p,key)=>(p.r&&typeof p.r[key]==='number')?p.r[key]:null;
 
+/* baseball only: SP / RP / "SP,RP" are pitchers, everything else bats */
+const PITCH_POS=['SP','RP','P'];
+function playerType(p){
+  const toks=String(p.pos||'').split(',').map(s=>s.trim().toUpperCase());
+  if(/\(pitcher\)/i.test(p.p)) return 'Pitcher';
+  if(/\(batter\)/i.test(p.p)) return 'Batter';
+  return toks.some(t=>PITCH_POS.includes(t)) ? 'Pitcher' : 'Batter';
+}
+
 $('plSport').onchange=()=>{
   if(!plUserPickedRank) $('plRank').value=DEFAULT_RANK[$('plSport').value]||'pre';
   paintPlayers();
@@ -1012,6 +1029,7 @@ $('plSport').onchange=()=>{
 $('plRank').onchange=()=>{ plUserPickedRank=true; paintPlayers(); };
 $('plAvail').onchange=paintPlayers;
 $('plPos').onchange=paintPlayers;
+$('plType').onchange=paintPlayers;
 $('plSearch').addEventListener('input',paintPlayers);
 
 function paintPlayers(){
@@ -1029,7 +1047,11 @@ function paintPlayers(){
     posSet.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');
   $('plPos').value=posSet.includes(cur)||cur==='ALL'?cur:'ALL';
 
+  // batter/pitcher only makes sense for baseball
+  $('plTypeWrap').classList.toggle('hide',sport!=='MLB');
   let list=POOL.filter(p=>p.sport===sport);
+  if(sport==='MLB'&&$('plType').value!=='ALL')
+    list=list.filter(p=>playerType(p)===$('plType').value);
   if($('plPos').value!=='ALL')
     list=list.filter(p=>String(p.pos||'').split(',').map(s=>s.trim()).includes($('plPos').value));
   if(q) list=list.filter(p=>p.p.toLowerCase().includes(q));
