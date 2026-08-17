@@ -739,6 +739,7 @@ let OVER  = {};      // overallIndex -> teamId (admin reassignments)
 let QUEUES= {};      // teamId -> {auto:bool,list:[{p,sport,pos}]}
 let KEEPERS={};      // teamId -> [{p,sport,pos}]
 let LOG   = [];
+let SKIPS = {};      // pickIndex -> {n:timesSkipped, ready:maxIdx it becomes eligible again}
 let POOL  = [];      // player pool
 let poolLoaded = false;
 let SEATDRAFT = null;      // ditto for the admin seat editor
@@ -823,6 +824,7 @@ onValue(R('queues'), s=>{ QUEUES=s.val()||{}; paintQueue(); });
 onValue(R('keepers'), s=>{ KEEPERS=s.val()||{}; paintAll(); paintKeepers(); });
 onValue(R('coadmins'), s=>{ COADMIN=s.val()||{}; recomputeAdmin(); paintAll(); paintCoAdmins(); });
 onValue(R('log'), s=>{ LOG=Object.values(s.val()||{}); paintLog(); });
+onValue(R('skips'), s=>{ SKIPS=s.val()||{}; paintAll(); });
 
 const pushLog = txt => set(R('log/'+Date.now()+Math.floor(Math.random()*99)),
   {t:Date.now(),txt});
@@ -873,12 +875,56 @@ async function flushQueue(){
 }
 setInterval(flushQueue,60000);
 
-/* ===== Advance / expiry ===== */
-async function advance(fromIdx,reason){
+/* ===== Advance / expiry =====
+   After a normal pick we hand the clock back to whoever got skipped, so they can
+   make it up. A slot that keeps getting skipped backs off (1, 3, 6, then 12 picks)
+   so an absent owner can't stall the draft. */
+const MAXI = () => Math.max(S.maxIdx||0, S.cur||0);
+const backoff = n => n<=1 ? 1 : n===2 ? 3 : n===3 ? 6 : 12;
+
+function openSkipped(maxIdx,exclude){
+  const out=[];
+  for(let j=0;j<=Math.min(maxIdx,TOTAL-1);j++){
+    if(j===exclude||PICKS[j]) continue;
+    const sk=SKIPS[j];
+    if(sk && typeof sk.ready==='number' && sk.ready>maxIdx) continue;  // still backing off
+    out.push(j);
+  }
+  return out;
+}
+
+function chooseNext(fromIdx,maxIdx,wasSkip){
+  // only hand back after a COMPLETED pick, and only if we were at the frontier
+  if(!wasSkip && fromIdx>=maxIdx){
+    const c=openSkipped(maxIdx,fromIdx);
+    if(c.length) return {idx:c[0],makeup:true};
+  }
+  let n=maxIdx+1;
+  while(n<TOTAL && PICKS[n]) n++;
+  if(n>=TOTAL){
+    const rem=openSkipped(TOTAL-1,fromIdx);
+    if(rem.length) return {idx:rem[0],makeup:true};
+    return {idx:TOTAL,done:true};
+  }
+  return {idx:n};
+}
+
+async function advance(fromIdx,reason,wasSkip){
+  if(wasSkip){
+    const prev=(SKIPS[fromIdx]&&SKIPS[fromIdx].n)||0;
+    const n=prev+1;
+    await set(R('skips/'+fromIdx),{n,ready:MAXI()+backoff(n)});
+  } else {
+    if(SKIPS[fromIdx]) await set(R('skips/'+fromIdx),null);
+  }
   await runTransaction(R('state'),cur=>{
     if(!cur||cur.cur!==fromIdx||cur.status!=='live') return;   // someone beat us
-    cur.cur=fromIdx+1; cur.startedAt=Date.now(); cur.extraMs=0;
-    if(cur.cur>=TOTAL){ cur.status='done'; }
+    const maxIdx=Math.max(cur.maxIdx||0,fromIdx);
+    const nx=chooseNext(fromIdx,maxIdx,wasSkip);
+    cur.cur=nx.idx;
+    cur.maxIdx=Math.max(maxIdx,nx.idx===TOTAL?maxIdx:nx.idx);
+    cur.startedAt=Date.now(); cur.extraMs=0;
+    if(nx.done) cur.status='done';
     return cur;
   });
   if(reason) pushLog(reason);
@@ -895,7 +941,7 @@ async function submitPick(idx,player,sport,pos,byAuto){
   await set(R('picks/'+idx),rec);
   pushLog(`${team(tid).name} — Rd ${roundOf(idx)} (#${idx+1}) — ${player}${byAuto?' (auto)':''}`);
   mirror([pickPayload(idx,rec)]);   // fire-and-forget to the Google Sheet
-  if(idx===S.cur) await advance(idx,null);
+  if(idx===S.cur) await advance(idx,null,false);
   return {ok:true};
 }
 
@@ -920,7 +966,7 @@ setInterval(async ()=>{
       }
     }
   }
-  advance(idx,`${team(tid).name} skipped — Rd ${roundOf(idx)} (#${idx+1}) still open`);
+  advance(idx,`${team(tid).name} skipped — Rd ${roundOf(idx)} (#${idx+1}) still open`,true);
 },2000);
 
 /* ===== Join screen ===== */
@@ -987,7 +1033,7 @@ function myOpenSlots(){
   const out=[];
   const T=actingTeam();
   if(S.status==='live'&&S.cur<TOTAL&&ownerOf(S.cur)===T&&!PICKS[S.cur]) out.push(S.cur);
-  for(let i=0;i<Math.min(S.cur,TOTAL);i++)
+  for(let i=0;i<Math.min(MAXI()+1,TOTAL);i++)
     if(!PICKS[i]&&ownerOf(i)===T) out.push(i);
   return [...new Set(out)].sort((a,b)=>a-b);
 }
@@ -1033,7 +1079,7 @@ function renderPick(){
   const missed=[], upcoming=[];
   for(let i=0;i<TOTAL;i++){
     if(PICKS[i]||ownerOf(i)!==T) continue;
-    (i<S.cur?missed:upcoming).push(i);
+    (i<=MAXI()&&i!==S.cur?missed:upcoming).push(i);
   }
   let nx='';
   if(!T) nx='Sign in with your team PIN to see your picks.';
@@ -1230,7 +1276,7 @@ function paintTheBoard(){
       const cls=['cell'];
       if(pk&&['NFL','NBA','MLB'].includes(pk.sport)) cls.push('sp-'+pk.sport);
       if(i===S.cur&&S.status==='live') cls.push('now');
-      else if(!pk&&i<S.cur) cls.push('miss');
+      else if(!pk&&i<=MAXI()) cls.push('miss');
       if(!pk) cls.push('empty');
       const tradedFlag = own!==origOwner(i) ? '<span class="tr">TRADE</span> ' : '';
       tds+=`<td class="${cls.join(' ')}">`+
@@ -1400,6 +1446,9 @@ function paintPlayers(){
 
   const slots=myOpenSlots();
   const canDraft=slots.length>0;
+  // admin: draft for whoever is on the clock, even if it isn't your team
+  const onClock = (S.status==='live'&&S.cur<TOTAL&&!PICKS[S.cur]) ? S.cur : null;
+  const adminFor = (ADMIN && onClock!==null && ownerOf(onClock)!==actingTeam()) ? onClock : null;
   const inQ=new Set(myQueue().map(x=>x.p));
 
   $('plList').innerHTML = shown.length ? shown.map(p=>{
@@ -1411,7 +1460,8 @@ function paintPlayers(){
       <div class="nm">${esc(p.p)}<span class="meta"> · ${esc(p.pos||'')}${p.tm?' · '+esc(p.tm):''}</span></div>
       ${h?`<span class="gonetag">${h.kpr?'KPR':'Rd '+h.rd} ${esc(team(h.by).name)}</span>`
          :`${ME?`<button class="ic" data-q="${esc(p.p)}"${inQ.has(p.p)?' disabled':''}>${inQ.has(p.p)?'✓':'+Q'}</button>`:''}
-            ${canDraft?`<button class="btn sm green" data-pick="${esc(p.p)}" data-sp="${p.sport}" data-po="${esc(p.pos||'')}">Draft</button>`:''}`}
+            ${canDraft?`<button class="btn sm green" data-pick="${esc(p.p)}" data-sp="${p.sport}" data-po="${esc(p.pos||'')}">Draft</button>`:''}
+            ${adminFor!==null?`<button class="btn sm warn" title="Draft for the team on the clock" data-adm="${esc(p.p)}" data-sp="${p.sport}" data-po="${esc(p.pos||'')}">⚡ ${esc(team(ownerOf(adminFor)).name)}</button>`:''}`}
     </div>`;
   }).join('') : `<div class="prow"><div class="nm muted">${
     POOL.length?'No players match those filters.':'No player list loaded yet.'}</div></div>`;
@@ -1419,6 +1469,17 @@ function paintPlayers(){
   $('plList').onclick=async e=>{
     const q=e.target.closest('[data-q]');
     if(q){ addToQueue(q.dataset.q); q.textContent='✓'; q.disabled=true; return; }
+    const ab=e.target.closest('[data-adm]');
+    if(ab){
+      const nm=ab.dataset.adm, tid=ownerOf(adminFor);
+      if(!confirm(`ADMIN PICK\n\nDraft ${nm}\nFOR: ${team(tid).name} (${team(tid).owner})\n`+
+                  `Round ${roundOf(adminFor)}, pick #${adminFor+1}\n\nThis counts as their pick. Continue?`)) return;
+      ab.disabled=true;
+      const r=await submitPick(adminFor,nm,ab.dataset.sp,ab.dataset.po,false);
+      if(!r.ok){ alert(r.msg); ab.disabled=false; }
+      else pushLog(`Admin drafted ${nm} for ${team(tid).name} (#${adminFor+1})`);
+      return;
+    }
     const b=e.target.closest('[data-pick]');
     if(b){
       const nm=b.dataset.pick;
@@ -1569,7 +1630,7 @@ TEAMS.forEach(t=>{ const o=document.createElement('option');
   o.value=t.id; o.textContent=t.name; aT.appendChild(o); });
 
 $('aStart').onclick=()=>{ if(!confirm('Start the draft?')) return;
-  update(R('state'),{status:'live',cur:0,startedAt:Date.now(),extraMs:0});
+  update(R('state'),{status:'live',cur:0,maxIdx:0,startedAt:Date.now(),extraMs:0});
   pushLog('Draft started'); };
 $('aPause').onclick=()=>{ update(R('state'),{status:'paused',pausedAt:Date.now()});
   pushLog('Draft paused'); };
@@ -1578,7 +1639,7 @@ $('aResume').onclick=()=>{
   update(R('state'),{status:'live',startedAt:(S.startedAt||Date.now())+held,pausedAt:null});
   pushLog('Draft resumed'); };
 $('aSkip').onclick=()=>{ if(!confirm('Skip the team on the clock?')) return;
-  advance(S.cur,`Admin skipped ${team(ownerOf(S.cur)).name} — #${S.cur+1}`); };
+  advance(S.cur,`Admin skipped ${team(ownerOf(S.cur)).name} — #${S.cur+1}`,true); };
 $('aUndo').onclick=async()=>{
   const ks=Object.keys(PICKS).map(Number).sort((a,b)=>b-a);
   if(!ks.length) return;
@@ -1641,7 +1702,7 @@ function paintActing(){
   const open=[];
   for(let i=0;i<TOTAL;i++){
     if(PICKS[i]) continue;
-    if(i>S.cur) continue;                       // not reached yet
+    if(i>MAXI()) continue;                      // not reached yet
     open.push(i);
   }
   sel.innerHTML = open.length
@@ -1853,9 +1914,10 @@ $('aReset2').onclick=async()=>{
   await set(R('picks'),null);
   await set(R('log'),null);
   await set(R('overrides'),null);     // admin pick reassignments
+  await set(R('skips'),null);         // skip/make-up bookkeeping
   await set(R('queues'),null);        // every team's queue + autopick flag
   await set(R('coadmins'),null);      // co-admin grants
-  await update(R('state'),{status:'setup',cur:0,startedAt:0,extraMs:0});
+  await update(R('state'),{status:'setup',cur:0,maxIdx:0,startedAt:0,extraMs:0});
   localStorage.removeItem(QKEY);      // any unsent picks waiting in this browser
 
   // tell the Sheet to clear itself too
