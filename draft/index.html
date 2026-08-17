@@ -462,7 +462,7 @@ td.empty{color:#3d4a5f}
     <div class="sec">
       <h3>Draft for another team</h3>
       <p class="sm muted" style="margin:0 0 10px">
-        Pick a team here and the Pick tab and Players page act as that team — you can
+        Pick a team here and the My Team tab and Players page act as that team — you can
         draft for them from anywhere, including any pick of theirs that got skipped.
       </p>
       <div class="arow">
@@ -543,18 +543,6 @@ td.empty{color:#3d4a5f}
       <p class="sm muted" style="margin:8px 0 0">
         Picks land in the 2026 Live Draft Board grid starting at C3, and in the Draft Log tab.
       </p>
-    </div>
-
-    <div class="sec">
-      <h3>Make a pick for someone / add off-list player</h3>
-      <div class="arow">
-        <input id="aPlayer" type="text" placeholder="Player name" style="width:200px">
-        <select id="aSport" style="width:100px">
-          <option>NFL</option><option>NBA</option><option>MLB</option>
-        </select>
-        <input id="aPos" type="text" placeholder="Pos" style="width:80px">
-        <button class="btn sm green" id="aPickGo">Submit for team on the clock</button>
-      </div>
     </div>
 
     <div class="sec">
@@ -1576,11 +1564,6 @@ $('aQuietGo').onclick=()=>{
   update(R('state'),{quietOn:$('aQuietOn').checked,
     quietS:+$('aQuietS').value,quietE:+$('aQuietE').value});
   pushLog('Quiet hours updated'); };
-
-$('aPickGo').onclick=async()=>{
-  const nm=$('aPlayer').value.trim(); if(!nm) return;
-  const r=await submitPick(S.cur,nm,$('aSport').value,$('aPos').value.trim(),false);
-  if(!r.ok) alert(r.msg); else { $('aPlayer').value=''; $('aPos').value=''; } };
 
 $('aSwapGo').onclick=async()=>{
   const a=+$('aSwapA').value-1, b=+$('aSwapB').value-1;
