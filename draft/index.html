@@ -127,6 +127,10 @@ td.empty{color:#3d4a5f}
 .rline{display:flex;align-items:center;gap:7px;padding:3px 0;font-size:13px}
 .rline .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rline .rd{font-size:11px;color:var(--mut)}
+.slot{display:inline-block;min-width:40px;text-align:center;font-size:10px;font-weight:800;
+  letter-spacing:.03em;padding:2px 6px;border-radius:4px;background:var(--panel2);
+  border:1px solid var(--line);color:var(--mut)}
+.slot.open{border-style:dashed;opacity:.55}
 .kpr{font-size:10px;font-weight:800;color:#f59e0b;background:#f59e0b18;
   border:1px solid #f59e0b44;border-radius:4px;padding:1px 5px;letter-spacing:.03em}
 .mine{font-size:10px;font-weight:700;color:var(--acc);background:#4f9dff1a;
@@ -329,6 +333,7 @@ td.empty{color:#3d4a5f}
       <button class="sf" data-s="MLB">MLB</button>
     </div>
     <div class="arow mb-16">
+      <label class="sm muted"><input type="checkbox" id="rBySlot" style="width:auto"> Show roster slots</label>
       <label class="sm muted"><input type="checkbox" id="rByPos" checked style="width:auto"> Group by position</label>
       <label class="sm muted"><input type="checkbox" id="rMineFirst" checked style="width:auto"> My team first</label>
       <span class="sm muted" id="rNote"></span>
@@ -1175,9 +1180,62 @@ $('rSports').onclick=e=>{ const b=e.target.closest('.sf'); if(!b) return;
   $('rSports').querySelectorAll('.sf').forEach(x=>x.classList.toggle('on',x===b));
   paintRosters(); };
 $('rByPos').onchange=paintRosters;
+$('rBySlot').onchange=paintRosters;
 $('rMineFirst').onchange=paintRosters;
 
 const CAPS={NFL:17,NBA:20,MLB:23};
+
+/* ===== roster slot structures ===== */
+const SLOTS={
+  NFL:['QB','RB','RB','WR','WR','WR','TE','Flex','Flex','IDP','IDP','DEF','B','B','B','B','B'],
+  NBA:['PG','SG','SF','PF','C','C','G','G','F','F','UT','UT','UT','UT','UT','UT','B','B','B','B'],
+  MLB:['C','1B','2B','3B','SS','OF','OF','OF','OF','MI','CI','UT','SP','P','P','P','P','P','P','P','RP','B','B'],
+};
+/* which player positions may fill each slot */
+const ELIG={
+  QB:['QB'], RB:['RB'], WR:['WR'], TE:['TE'],
+  Flex:['RB','WR','TE'],
+  IDP:['LB','DE','DT','CB','S'],
+  DEF:['DST'],
+  PG:['PG'], SG:['SG'], SF:['SF'], PF:['PF'],
+  G:['PG','SG'], F:['SF','PF'],
+  '1B':['1B'], '2B':['2B'], '3B':['3B'], SS:['SS'],
+  OF:['OF','LF','CF','RF'],
+  MI:['2B','SS'], CI:['1B','3B'],
+  SP:['SP'], RP:['RP'], P:['SP','RP'],
+  C:['C'],                      // catcher (MLB) / centre (NBA) — same token, both fine
+};
+const posTokens = p => String(p.pos||'').split(',').map(s=>s.trim().toUpperCase()).filter(Boolean);
+function fits(slot,player){
+  if(slot==='B') return true;                       // bench takes anyone
+  if(slot==='UT'){
+    if(player.sport==='NBA') return true;
+    return posTokens(player).every(t=>!['SP','RP','P'].includes(t)); // MLB UT = batters
+  }
+  const ok=ELIG[slot]||[];
+  return posTokens(player).some(t=>ok.includes(t));
+}
+/* greedy fill: scarcest slots first so a C isn't wasted in a UT */
+function fillSlots(sport,players){
+  const slots=(SLOTS[sport]||[]).map(s=>({slot:s,player:null}));
+  const order=[...slots.keys()].sort((a,b)=>{
+    const rank=s=>s==='B'?3:s==='UT'?2:['Flex','G','F','MI','CI','P'].includes(s)?1:0;
+    return rank(slots[a].slot)-rank(slots[b].slot);
+  });
+  const left=players.slice();
+  for(const i of order){
+    const s=slots[i];
+    // prefer the player who fits the fewest remaining slot types
+    let best=-1,bestN=1e9;
+    left.forEach((pl,j)=>{
+      if(!fits(s.slot,pl)) return;
+      const n=slots.filter(x=>!x.player&&fits(x.slot,pl)).length;
+      if(n<bestN){ bestN=n; best=j; }
+    });
+    if(best>=0) s.player=left.splice(best,1)[0];
+  }
+  return {slots,overflow:left};
+}
 
 function rosterOf(teamId,pm){
   const out=[];
@@ -1195,12 +1253,14 @@ function rosterOf(teamId,pm){
 function paintRosters(){
   const pm=POSMAP();
   const byPos=$('rByPos').checked;
+  const bySlot=$('rBySlot').checked;
   let order=TEAMS.slice();
   if($('rMineFirst').checked&&ME) order.sort((a,b)=>(a.id===ME?-1:b.id===ME?1:0));
 
   const anyPos=Object.values(PICKS).some(x=>x.pos)||POOL.length>0;
-  $('rNote').textContent = anyPos ? '' :
-    'No positions yet — they appear once the player list is loaded.';
+  $('rNote').textContent = (bySlot && rosterSport==='ALL')
+    ? 'Pick a single sport to see its roster slots.'
+    : (anyPos ? '' : 'No positions yet — they appear once the player list is loaded.');
 
   $('rGrid').innerHTML=order.map(t=>{
     let list=rosterOf(t.id,pm);
@@ -1209,7 +1269,23 @@ function paintRosters(){
     if(rosterSport!=='ALL') list=list.filter(x=>x.sport===rosterSport);
 
     let body='';
-    if(!list.length){
+    if(bySlot && rosterSport!=='ALL'){
+      const {slots,overflow}=fillSlots(rosterSport,list);
+      const need=slots.filter(s=>!s.player).length;
+      body=`<div class="sm muted" style="margin-bottom:6px">
+              ${slots.length-need} of ${slots.length} slots filled${need?` · needs ${need}`:' · full'}</div>`
+        + slots.map(s=>`<div class="rline">
+            <span class="slot${s.player?'':' open'}">${esc(s.slot)}</span>
+            ${s.player
+              ? `<span class="nm">${esc(s.player.p)}</span>
+                 ${s.player.kpr?'<span class="kpr">KPR</span>':`<span class="rd">Rd ${s.player.rd}</span>`}`
+              : '<span class="nm muted">— open —</span>'}
+          </div>`).join('')
+        + (overflow.length
+            ? `<div class="poshd" style="margin-top:8px">Over the limit<span>${overflow.length}</span></div>`
+              + overflow.map(x=>rosterLine(x)).join('')
+            : '');
+    } else if(!list.length){
       body='<div class="muted sm">Nothing yet.</div>';
     } else if(byPos){
       const groups={};
