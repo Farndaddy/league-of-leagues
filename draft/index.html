@@ -79,6 +79,17 @@ h2{font-size:16px;margin:0 0 10px}
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .prow .meta{font-size:12px;color:var(--mut);font-weight:400}
 .pill{font-size:10px;font-weight:800;padding:2px 6px;border-radius:5px;letter-spacing:.04em}
+.quickbar{position:sticky;top:96px;z-index:40;background:var(--panel2);
+  border:1px solid var(--acc);border-radius:12px;padding:10px 12px;margin-bottom:12px;
+  display:flex;gap:12px;align-items:center;flex-wrap:wrap;
+  box-shadow:0 4px 14px rgba(0,0,0,.35)}
+.qb-status{min-width:150px;flex:1}
+.qb-who{font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qb-clock{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;color:#8fc2ff;line-height:1.1}
+.qb-clock.low{color:#ff9d9d} .qb-clock.frozen{color:#fbc36a;font-size:15px}
+.qb-acts{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.qb-sep{width:1px;height:20px;background:var(--line)}
+@media(max-width:600px){ .quickbar{top:88px;padding:9px} .qb-clock{font-size:19px} }
 .sportsel{display:flex;gap:6px;flex-wrap:wrap}
 .sbtn{padding:6px 13px;border-radius:20px;background:var(--panel2);border:1px solid var(--line);
   color:var(--mut);font-size:13px;font-weight:700;letter-spacing:.02em}
@@ -418,7 +429,34 @@ td.empty{color:#3d4a5f}
 
   <!-- ADMIN -->
   <section id="v-admin" class="hide">
-    <div class="sec">
+
+    <!-- always-visible quick bar -->
+    <div class="quickbar">
+      <div class="qb-status">
+        <div class="qb-who" id="qbWho">—</div>
+        <div class="qb-clock" id="qbClock">—</div>
+      </div>
+      <div class="qb-acts">
+        <button class="btn sm warn" id="qbPause">Pause</button>
+        <button class="btn sm gray" id="qbResume">Resume</button>
+        <span class="qb-sep"></span>
+        <button class="btn sm gray" data-add="15">+15m</button>
+        <button class="btn sm gray" data-add="30">+30m</button>
+        <button class="btn sm gray" data-add="60">+1hr</button>
+        <span class="qb-sep"></span>
+        <button class="btn sm gray" id="qbSkip">Skip</button>
+        <button class="btn sm gray" id="qbUndo">Undo</button>
+      </div>
+    </div>
+
+    <div class="sportfilter" id="aNav">
+      <button class="sf on" data-a="live">During the draft</button>
+      <button class="sf" data-a="setup">Setup</button>
+      <button class="sf" data-a="tools">Tools</button>
+    </div>
+
+    <div id="a-live">
+<div class="sec">
       <h3>Draft control</h3>
       <div class="arow">
         <button class="btn sm green" id="aStart">Start draft</button>
@@ -429,8 +467,7 @@ td.empty{color:#3d4a5f}
       </div>
       <div class="sm muted" id="aState"></div>
     </div>
-
-    <div class="sec">
+<div class="sec">
       <h3>Clock</h3>
       <div class="arow">
         <span class="sm muted">Timer:</span>
@@ -458,8 +495,7 @@ td.empty{color:#3d4a5f}
         <span class="sm muted">(24hr clock — clock freezes, but whoever is up can still pick)</span>
       </div>
     </div>
-
-    <div class="sec">
+<div class="sec">
       <h3>Draft for another team</h3>
       <p class="sm muted" style="margin:0 0 10px">
         Pick a team here and the My Team tab and Players page act as that team — you can
@@ -479,88 +515,7 @@ td.empty{color:#3d4a5f}
         <button class="btn sm green" id="aSlotGo">Draft</button>
       </div>
     </div>
-
-    <div class="sec">
-      <h3>Co-admins</h3>
-      <p class="sm muted" style="margin:0 0 10px">
-        Give another owner admin rights. They sign in with their own team PIN and get
-        the Admin tab — no code to share. Toggle off any time.
-      </p>
-      <div id="aCoList"></div>
-    </div>
-
-    <div class="sec">
-      <h3>Keepers</h3>
-      <p class="sm muted" style="margin:0 0 10px">
-        3 per sport, 9 per team. Keepers show on rosters tagged KPR and can't be drafted again.
-      </p>
-      <div class="arow">
-        <select id="kTeam" style="width:220px"></select>
-        <select id="kSport" style="width:90px">
-          <option>NFL</option><option>NBA</option><option>MLB</option>
-        </select>
-        <input id="kPlayer" type="text" placeholder="Player name" style="width:200px" list="kSuggest">
-        <datalist id="kSuggest"></datalist>
-        <input id="kPos" type="text" placeholder="Pos" style="width:70px">
-        <button class="btn sm green" id="kAdd">Add keeper</button>
-      </div>
-      <div class="sm muted mb-16" id="kMsg"></div>
-      <div id="kList"></div>
-    </div>
-
-    <div class="sec">
-      <h3>Timer schedule</h3>
-      <label class="toggle" style="margin-bottom:10px">
-        <input type="checkbox" id="aSchedOn">
-        <div>
-          <b>Change the clock automatically by time of day</b>
-          <span>When on, the timer follows the blocks below and the manual timer buttons are ignored.</span>
-        </div>
-      </label>
-      <div id="aSchedRows"></div>
-      <div class="arow" style="margin-top:8px">
-        <button class="btn sm gray" id="aSchedAdd">Add block</button>
-        <button class="btn sm gray" id="aSchedPlanA">Load Plan A</button>
-        <button class="btn sm green" id="aSchedSave">Save schedule</button>
-        <span class="sm muted" id="aSchedNow"></span>
-      </div>
-    </div>
-
-    <div class="sec">
-      <h3>Google Sheet backup</h3>
-      <p class="sm muted" style="margin:0 0 10px">
-        Every pick is copied into your Live Draft Board tab. Paste the Apps Script web app link here.
-      </p>
-      <div class="arow">
-        <input id="aHook" type="text" placeholder="https://script.google.com/macros/s/.../exec" style="flex:1;min-width:260px">
-        <button class="btn sm green" id="aHookSave">Save link</button>
-      </div>
-      <div class="arow">
-        <button class="btn sm gray" id="aHookTest">Send test row</button>
-        <button class="btn sm gray" id="aResync">Re-sync every pick</button>
-        <span class="sm muted" id="aHookMsg"></span>
-      </div>
-      <p class="sm muted" style="margin:8px 0 0">
-        Picks land in the 2026 Live Draft Board grid starting at C3, and in the Draft Log tab.
-      </p>
-    </div>
-
-    <div class="sec">
-      <h3>Draft order — round 1 seats</h3>
-      <p class="sm muted" style="margin:0 0 10px">
-        Drag to reorder, or use the dropdowns. Even rounds reverse automatically (snake).
-        Traded picks follow their original team, so they stay correct when you reorder.
-      </p>
-      <div id="aSeat"></div>
-      <div class="arow" style="margin-top:10px">
-        <button class="btn sm green" id="aSeatSave">Save draft order</button>
-        <button class="btn sm gray" id="aSeatReset">Revert to saved</button>
-        <button class="btn sm gray" id="aSeatRandom">Randomize</button>
-        <span class="sm muted" id="aSeatMsg"></span>
-      </div>
-    </div>
-
-    <div class="sec">
+<div class="sec">
       <h3>Trade picks</h3>
       <div class="arow">
         <span class="sm muted">Pick #</span>
@@ -578,8 +533,91 @@ td.empty{color:#3d4a5f}
       </div>
       <div class="log" id="aSwapLog"></div>
     </div>
+    </div>
 
-    <div class="sec">
+    <div id="a-setup" class="hide">
+      <div class="banner info" id="aSetupWarn" style="display:none">
+        The draft is live — changes here affect a draft in progress.
+      </div>
+<div class="sec">
+      <h3>Keepers</h3>
+      <p class="sm muted" style="margin:0 0 10px">
+        3 per sport, 9 per team. Keepers show on rosters tagged KPR and can't be drafted again.
+      </p>
+      <div class="arow">
+        <select id="kTeam" style="width:220px"></select>
+        <select id="kSport" style="width:90px">
+          <option>NFL</option><option>NBA</option><option>MLB</option>
+        </select>
+        <input id="kPlayer" type="text" placeholder="Player name" style="width:200px" list="kSuggest">
+        <datalist id="kSuggest"></datalist>
+        <input id="kPos" type="text" placeholder="Pos" style="width:70px">
+        <button class="btn sm green" id="kAdd">Add keeper</button>
+      </div>
+      <div class="sm muted mb-16" id="kMsg"></div>
+      <div id="kList"></div>
+    </div>
+<div class="sec">
+      <h3>Draft order — round 1 seats</h3>
+      <p class="sm muted" style="margin:0 0 10px">
+        Drag to reorder, or use the dropdowns. Even rounds reverse automatically (snake).
+        Traded picks follow their original team, so they stay correct when you reorder.
+      </p>
+      <div id="aSeat"></div>
+      <div class="arow" style="margin-top:10px">
+        <button class="btn sm green" id="aSeatSave">Save draft order</button>
+        <button class="btn sm gray" id="aSeatReset">Revert to saved</button>
+        <button class="btn sm gray" id="aSeatRandom">Randomize</button>
+        <span class="sm muted" id="aSeatMsg"></span>
+      </div>
+    </div>
+<div class="sec">
+      <h3>Timer schedule</h3>
+      <label class="toggle" style="margin-bottom:10px">
+        <input type="checkbox" id="aSchedOn">
+        <div>
+          <b>Change the clock automatically by time of day</b>
+          <span>When on, the timer follows the blocks below and the manual timer buttons are ignored.</span>
+        </div>
+      </label>
+      <div id="aSchedRows"></div>
+      <div class="arow" style="margin-top:8px">
+        <button class="btn sm gray" id="aSchedAdd">Add block</button>
+        <button class="btn sm gray" id="aSchedPlanA">Load Plan A</button>
+        <button class="btn sm green" id="aSchedSave">Save schedule</button>
+        <span class="sm muted" id="aSchedNow"></span>
+      </div>
+    </div>
+<div class="sec">
+      <h3>Co-admins</h3>
+      <p class="sm muted" style="margin:0 0 10px">
+        Give another owner admin rights. They sign in with their own team PIN and get
+        the Admin tab — no code to share. Toggle off any time.
+      </p>
+      <div id="aCoList"></div>
+    </div>
+<div class="sec">
+      <h3>Google Sheet backup</h3>
+      <p class="sm muted" style="margin:0 0 10px">
+        Every pick is copied into your Live Draft Board tab. Paste the Apps Script web app link here.
+      </p>
+      <div class="arow">
+        <input id="aHook" type="text" placeholder="https://script.google.com/macros/s/.../exec" style="flex:1;min-width:260px">
+        <button class="btn sm green" id="aHookSave">Save link</button>
+      </div>
+      <div class="arow">
+        <button class="btn sm gray" id="aHookTest">Send test row</button>
+        <button class="btn sm gray" id="aResync">Re-sync every pick</button>
+        <span class="sm muted" id="aHookMsg"></span>
+      </div>
+      <p class="sm muted" style="margin:8px 0 0">
+        Picks land in the 2026 Live Draft Board grid starting at C3, and in the Draft Log tab.
+      </p>
+    </div>
+    </div>
+
+    <div id="a-tools" class="hide">
+<div class="sec">
       <h3>Export</h3>
       <div class="arow">
         <button class="btn sm gray" id="aExpCsv">Download picks CSV</button>
@@ -587,14 +625,15 @@ td.empty{color:#3d4a5f}
         <button class="btn sm gray" id="aExpJson">Download JSON (for site)</button>
       </div>
     </div>
-
-    <div class="sec">
+<div class="sec">
       <h3 style="color:var(--bad)">Danger</h3>
       <div class="arow">
         <button class="btn sm red" id="aReset2">Reset entire draft</button>
         <span class="sm muted">Wipes all picks. Cannot be undone.</span>
       </div>
     </div>
+    </div>
+
   </section>
 </main>
 </div>
@@ -1846,6 +1885,7 @@ function paintAll(){
     paintKeepers();
     paintCoAdmins();
     paintActing();
+    paintQuickBar();
     $('aQuietOn').checked=!!S.quietOn;
     if(document.activeElement!==$('aQuietS')) $('aQuietS').value=S.quietS;
     if(document.activeElement!==$('aQuietE')) $('aQuietE').value=S.quietE;
@@ -1856,6 +1896,35 @@ function paintAll(){
 }
 function esc(s){ return String(s??'').replace(/[&<>"']/g,
   c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ===== admin sub-nav + quick bar ===== */
+$('aNav').onclick=e=>{ const b=e.target.closest('.sf'); if(!b) return;
+  $('aNav').querySelectorAll('.sf').forEach(x=>x.classList.toggle('on',x===b));
+  ['live','setup','tools'].forEach(v=>$('a-'+v).classList.toggle('hide',v!==b.dataset.a));
+};
+$('qbPause').onclick=()=>$('aPause').click();
+$('qbResume').onclick=()=>$('aResume').click();
+$('qbSkip').onclick=()=>$('aSkip').click();
+$('qbUndo').onclick=()=>$('aUndo').click();
+
+function paintQuickBar(){
+  const w=$('qbWho'), c=$('qbClock'); if(!w||!c) return;
+  if(S.status==='live'&&S.cur<TOTAL){
+    const t=team(ownerOf(S.cur));
+    w.innerHTML=`${esc(t.name)} <span class="sm muted">Rd ${roundOf(S.cur)} · #${S.cur+1}</span>`;
+    const left=msLeft(), q=inQuiet(new Date());
+    c.textContent=q?'FROZEN':fmt(left);
+    c.className='qb-clock'+(q?' frozen':(left!==null&&left<120000?' low':''));
+  } else {
+    w.textContent = S.status==='setup'?'Not started':S.status==='paused'?'PAUSED':'Draft complete';
+    c.textContent='—'; c.className='qb-clock';
+  }
+  $('qbPause').classList.toggle('hide',S.status!=='live');
+  $('qbResume').classList.toggle('hide',S.status!=='paused');
+  const warn=$('aSetupWarn');
+  if(warn) warn.style.display = (S.status==='live'||S.status==='paused') ? 'flex' : 'none';
+}
+setInterval(()=>{ if(ADMIN&&!$('v-admin').classList.contains('hide')) paintQuickBar(); },500);
 
 /* ===== sign out ===== */
 $('hOut').onclick=()=>{
