@@ -116,7 +116,8 @@ table{border-collapse:separate;border-spacing:0;font-size:12px;width:max-content
 th,td{padding:5px 7px;border-bottom:1px solid var(--line);
   border-right:1px solid var(--line);white-space:nowrap}
 th{position:sticky;top:0;background:var(--panel2);z-index:2;font-size:11px;
-  text-align:left;color:var(--mut);min-width:130px;max-width:130px}
+  text-align:left;color:var(--mut)}
+.boardwrap table th:not(.rnd){min-width:130px;max-width:130px}
 th .sub{display:block;font-size:10px;opacity:.7;font-weight:400}
 td.rnd,th.rnd{position:sticky;left:0;background:var(--panel2);z-index:1;
   font-weight:800;text-align:center;color:var(--mut);min-width:34px}
@@ -155,6 +156,24 @@ td.empty{color:#3d4a5f}
 .nextup{font-size:13px;color:var(--mut);border-top:1px solid var(--line);padding-top:9px}
 .nextup b{color:var(--txt)}
 .nextup .soon{color:var(--good);font-weight:700}
+.ordrd{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--mut);background:var(--panel2);border:1px solid var(--line);border-radius:7px;
+  padding:5px 10px;margin:12px 0 6px;position:sticky;top:96px;z-index:5}
+.ordrd:first-child{margin-top:0}
+.ordrow{display:flex;align-items:center;gap:10px;padding:9px 11px;background:var(--panel);
+  border:1px solid var(--line);border-radius:9px;margin-bottom:5px}
+.ordno{min-width:38px;text-align:center;font-variant-numeric:tabular-nums;font-weight:800;
+  font-size:13px;color:var(--mut);background:var(--panel2);border:1px solid var(--line);
+  border-radius:6px;padding:3px 5px;flex-shrink:0}
+.ordmid{flex:1;min-width:0}
+.ordplayer{font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ordmeta{font-size:12px;color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:600px){
+  .ordrow{padding:8px 9px;gap:8px}
+  .ordno{min-width:32px;font-size:12px}
+  .ordplayer{font-size:13px}
+  .ordrd{top:88px}
+}
 .pfilters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;align-items:flex-end}
 .pfilters>div{min-width:130px}
 .pfilters .lbl{margin:0 0 4px}
@@ -396,7 +415,7 @@ td.empty{color:#3d4a5f}
       <button class="btn sm gray hide" id="bJump">Jump to current pick</button>
       <span class="sm muted" id="bInfo"></span>
     </div>
-    <div class="legend mb-16">
+    <div class="legend mb-16" id="bLegend">
       <span><i style="background:#ff6b6b66"></i>NFL</span>
       <span><i style="background:#60a5fa66"></i>NBA</span>
       <span><i style="background:#fbbf2466"></i>MLB</span>
@@ -1195,6 +1214,7 @@ function resetWrap(scroll){
 function paintBoard(){
   resetWrap(bMode!=='grid');
   $('bGridCtl').classList.toggle('hide',bMode!=='grid');
+  $('bLegend').classList.toggle('hide',bMode!=='board');
   $('bJump').classList.toggle('hide',bMode!=='board');
   if(bMode==='grid') return paintGrid();
   if(bMode==='order') return paintOrder();
@@ -1246,21 +1266,29 @@ function paintGrid(){
     : `${bSport}: ${tot} of ${cap} slots filled`;
 }
 
-/* every pick in the order it happened */
+/* every pick in the order it happened — list layout, works on a phone */
 function paintOrder(){
-  const ks=Object.keys(PICKS).map(Number).sort((a,b)=>a-b);
-  if(!ks.length){ $('bWrap').innerHTML='<div class="prow"><div class="nm muted">No picks yet.</div></div>';
-    $('bInfo').textContent=''; return; }
-  let html='<table><tr><th class="rnd">#</th><th>Rd</th><th>Team</th><th>Player</th><th>Pos</th><th>Sport</th></tr>';
-  ks.forEach(i=>{ const p=PICKS[i];
-    html+=`<tr><td class="rnd">${i+1}</td><td>${roundOf(i)}</td>`+
-      `<td style="min-width:150px">${esc(team(p.team).name)}</td>`+
-      `<td style="min-width:170px"><b>${esc(p.p)}</b>${p.auto?' <span class="sub">auto</span>':''}</td>`+
-      `<td>${esc(p.pos||'')}</td>`+
-      `<td>${p.sport?`<span class="pill ${p.sport}">${p.sport}</span>`:''}</td></tr>`;
+  const ks=Object.keys(PICKS).map(Number).sort((a,b)=>b-a);   // newest first
+  if(!ks.length){
+    $('bWrap').innerHTML='<div class="muted sm" style="padding:14px">No picks yet.</div>';
+    $('bInfo').textContent=''; return;
+  }
+  let lastRd=null, html='';
+  ks.forEach(i=>{
+    const p=PICKS[i], rd=roundOf(i);
+    if(rd!==lastRd){ html+=`<div class="ordrd">Round ${rd}</div>`; lastRd=rd; }
+    const t=team(p.team);
+    html+=`<div class="ordrow">
+      <span class="ordno">${i+1}</span>
+      <div class="ordmid">
+        <div class="ordplayer">${esc(p.p)}${p.auto?' <span class="gonetag">auto</span>':''}</div>
+        <div class="ordmeta">${esc(t.name)}${p.pos?' · '+esc(p.pos):''}</div>
+      </div>
+      ${p.sport?`<span class="pill ${p.sport}">${p.sport}</span>`:''}
+    </div>`;
   });
-  $('bWrap').innerHTML=html+'</table>';
-  $('bInfo').textContent=`${ks.length} picks made`;
+  $('bWrap').innerHTML=html;
+  $('bInfo').textContent=`${ks.length} picks made · newest first`;
 }
 
 function paintTheBoard(){
