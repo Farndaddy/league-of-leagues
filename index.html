@@ -273,6 +273,7 @@
   .roster-empty { text-align: center; padding: 60px 20px; color: var(--text-m); font-size: 14px; }
   .roster-no-data { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 40px; text-align: center; color: var(--text-2); }
   .kpr-badge { font-size: 10px; font-weight: 700; color: #f59e0b; background: #f59e0b18; border: 1px solid #f59e0b44; border-radius: 4px; padding: 1px 5px; margin-left: 4px; letter-spacing: .03em; }
+  .trd-badge { font-size: 10px; font-weight: 700; color: #4f9dff; background: #4f9dff18; border: 1px solid #4f9dff44; border-radius: 4px; padding: 1px 5px; margin-left: 4px; letter-spacing: .03em; cursor: help; }
   .pill-nfl.active { background: #ff6b6b; border-color: #ff6b6b; }
   .pill-nba.active { background: #60a5fa; border-color: #60a5fa; }
   .pill-mlb.active { background: #fbbf24; border-color: #fbbf24; }
@@ -1945,7 +1946,7 @@ function renderRosters(){
     const renderRows = (players) => players.map(p=>`
       <div class="roster-player-row">
         <span class="roster-pos ${posClass(p.pos)}">${esc(p.pos)}</span>
-        <span class="roster-player-name">${esc(p.player)}${p.kpr ? ' <span class="kpr-badge">(KPR)</span>' : ''}</span>
+        <span class="roster-player-name">${esc(p.player)}${p.kpr ? ' <span class="kpr-badge">(KPR)</span>' : ''}${p.trd ? ` <span class="trd-badge" title="Acquired by trade${p.from ? ' from ' + esc(p.from) : ''}${p.trade ? ' (trade #' + p.trade + ')' : ''} — after this roster was captured">(TRD)</span>` : ''}</span>
       </div>`).join('');
 
     let benchers = '';
