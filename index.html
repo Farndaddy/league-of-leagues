@@ -1903,7 +1903,8 @@ function renderRosters(){
   // Build year pills for this sport
   const yearPills = document.getElementById('ro-year-pills');
   const sportData = rosters && rosters[sport] ? rosters[sport] : {};
-  const years = Object.keys(sportData).sort((a,b)=>Number(b)-Number(a));
+  // parseInt so hyphenated years like "2025-26" sort by their leading year
+  const years = Object.keys(sportData).sort((a,b)=>parseInt(b,10)-parseInt(a,10));
 
   if(years.length > 0 && !ROSTER_STATE.year){
     ROSTER_STATE.year = years[0];
