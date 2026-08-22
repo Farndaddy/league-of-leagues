@@ -224,8 +224,8 @@ td.empty{color:#3d4a5f}
 .toggle div{flex:1}
 .toggle b{display:block;font-size:14px}
 .toggle span{font-size:12px;color:var(--mut)}
-.hl-timer{color:var(--warn);font-weight:800}
-.hl-imm{color:var(--acc);font-weight:800}
+.hl-timer{color:#facc15;font-weight:800}
+.hl-imm{color:#22ff5b;font-weight:800}
 
 /* ---------- Roster / admin ---------- */
 .grid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:11px}
@@ -822,8 +822,12 @@ function quietMs(from,to){
   for(let t=from;t<to;t+=step) if(inQuiet(new Date(t))) q+=Math.min(step,to-t);
   return q;
 }
-/* the clock length in force right now — from the schedule if it's on */
+/* the clock length in force right now — from the schedule if it's on.
+   A manual "Set" from the admin panel (timerOverrideMin) always wins over
+   the schedule for the CURRENT pick only — it's cleared whenever the draft
+   advances to the next pick, so the schedule resumes normal control. */
 function effectiveTimer(){
+  if(S.timerOverrideMin) return S.timerOverrideMin;
   if(!S.schedOn||!Array.isArray(S.sched)||!S.sched.length) return S.timerMin;
   const n=new Date(), mins=n.getHours()*60+n.getMinutes();
   const b=S.sched.slice().sort((a,c)=>(a.h*60+a.m)-(c.h*60+c.m));
@@ -831,9 +835,13 @@ function effectiveTimer(){
   for(const x of b) if(mins>=x.h*60+x.m) cur=x;
   return cur.t;
 }
-function msLeft(){
-  if(S.status!=='live'||!S.startedAt) return null;
-  const now=Date.now();
+/* pass {live:true} to compute what the clock WOULD show if resumed right
+   now — used to give paused-state UI real feedback instead of a blank
+   dash, so Set/Extend actions are visible immediately without Resuming. */
+function msLeft(opts){
+  const asOfLive = opts&&opts.live;
+  if((S.status!=='live'&&!asOfLive)||!S.startedAt) return null;
+  const now=asOfLive&&S.status==='paused'&&S.pausedAt ? S.pausedAt : Date.now();
   const budget=effectiveTimer()*60000+(S.extraMs||0);
   const used=(now-S.startedAt)-quietMs(S.startedAt,now);
   return budget-used;
@@ -956,7 +964,7 @@ async function advance(fromIdx,reason,wasSkip){
     const nx=chooseNext(fromIdx,maxIdx,wasSkip);
     cur.cur=nx.idx;
     cur.maxIdx=Math.max(maxIdx,nx.idx===TOTAL?maxIdx:nx.idx);
-    cur.startedAt=Date.now(); cur.extraMs=0;
+    cur.startedAt=Date.now(); cur.extraMs=0; cur.timerOverrideMin=null;
     if(nx.done) cur.status='done';
     return cur;
   });
@@ -1065,18 +1073,23 @@ setInterval(()=>{
   const c=$('hClock'); if(!c) return;
   if(S.status==='setup'){ c.textContent='—'; c.className='clock'; $('hOn').textContent='Not started'; return; }
   if(S.status==='done'){ c.textContent='Done'; c.className='clock'; $('hOn').textContent='Draft complete'; return; }
-  if(S.status==='paused'){ c.textContent='PAUSED'; c.className='clock paused'; $('hOn').textContent=''; return; }
-  const left=msLeft(); c.textContent=fmt(left);
-  c.className='clock'+(left!==null&&left<120000?' low':'')+(inQuiet(new Date())?' paused':'');
+  // paused still shows the real remaining time (as of the moment it was
+  // paused) so a Set/Extend click is visible right away, not just after Resume
+  const left = S.status==='paused' ? msLeft({live:true}) : msLeft();
+  if(S.status==='paused'){ c.textContent=`PAUSED · ${fmt(left)}`; c.className='clock paused'; }
+  else{
+    c.textContent=fmt(left);
+    c.className='clock'+(left!==null&&left<120000?' low':'')+(inQuiet(new Date())?' paused':'');
+  }
   const box=$('pTimerBox'), big=$('pClock2');
   if(box&&big){
     const q=inQuiet(new Date());
-    big.textContent = S.status==='live' ? (q?'FROZEN':fmt(left)) : c.textContent;
-    box.className='timerbox'+(q?' frozen':(S.status==='live'&&left!==null&&left<120000?' low':''));
+    big.textContent = S.status==='paused' ? fmt(left) : S.status==='live' ? (q?'FROZEN':fmt(left)) : c.textContent;
+    box.className='timerbox'+(S.status==='paused'?' frozen':q?' frozen':(S.status==='live'&&left!==null&&left<120000?' low':''));
   }
   const tid=ownerOf(S.cur);
   $('hOn').textContent = S.cur<TOTAL
-    ? `${team(tid).name} · Rd ${roundOf(S.cur)} · #${S.cur+1}`+(inQuiet(new Date())?' · quiet hrs':'')
+    ? `${team(tid).name} · Rd ${roundOf(S.cur)} · #${S.cur+1}`+(S.status==='paused'?' · paused':inQuiet(new Date())?' · quiet hrs':'')
     : '';
 },500);
 
@@ -1704,7 +1717,7 @@ TEAMS.forEach(t=>{ const o=document.createElement('option');
   o.value=t.id; o.textContent=t.name; aT.appendChild(o); });
 
 $('aStart').onclick=()=>{ if(!confirm('Start the draft?')) return;
-  update(R('state'),{status:'live',cur:0,maxIdx:0,startedAt:Date.now(),extraMs:0});
+  update(R('state'),{status:'live',cur:0,maxIdx:0,startedAt:Date.now(),extraMs:0,timerOverrideMin:null});
   pushLog('Draft started'); };
 $('aPause').onclick=()=>{ update(R('state'),{status:'paused',pausedAt:Date.now()});
   pushLog('Draft paused'); };
@@ -1723,16 +1736,26 @@ $('aUndo').onclick=async()=>{
   await update(R('state'),{cur:last,startedAt:Date.now(),extraMs:0,status:'live'});
   pushLog(`Admin undid pick #${last+1}`); };
 
-document.querySelectorAll('[data-set]').forEach(b=>b.onclick=()=>{
-  update(R('state'),{timerMin:+b.dataset.set}); pushLog(`Timer set to ${b.dataset.set}m`); });
-$('aSetGo').onclick=()=>{ const v=+$('aSetCustom').value; if(v>0){
-  update(R('state'),{timerMin:v}); pushLog(`Timer set to ${v}m`); } };
+/* "Set" always wins over the schedule for the current pick (timerOverrideMin,
+   see effectiveTimer) and restarts the clock fresh from right now, so it
+   works correctly whether the draft is live or paused. */
+function setTimerNow(mins){
+  const patch={timerOverrideMin:mins,extraMs:0,startedAt:Date.now()};
+  if(S.status==='paused') patch.pausedAt=Date.now();
+  update(R('state'),patch);
+  pushLog(`Timer set to ${mins}m`);
+}
+document.querySelectorAll('[data-set]').forEach(b=>b.onclick=()=>setTimerNow(+b.dataset.set));
+$('aSetGo').onclick=()=>{ const v=+$('aSetCustom').value; if(v>0) setTimerNow(v); };
 document.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{
   update(R('state'),{extraMs:(S.extraMs||0)+ +b.dataset.add*60000});
   pushLog(`Clock extended ${b.dataset.add}m`); });
 $('aAddGo').onclick=()=>{ const v=+$('aAddCustom').value; if(v>0){
   update(R('state'),{extraMs:(S.extraMs||0)+v*60000}); pushLog(`Clock extended ${v}m`); } };
-$('aReset').onclick=()=>{ update(R('state'),{startedAt:Date.now(),extraMs:0});
+$('aReset').onclick=()=>{
+  const patch={startedAt:Date.now(),extraMs:0,timerOverrideMin:null};
+  if(S.status==='paused') patch.pausedAt=Date.now();
+  update(R('state'),patch);
   pushLog('Clock reset'); };
 $('aQuietGo').onclick=()=>{
   update(R('state'),{quietOn:$('aQuietOn').checked,
@@ -2060,14 +2083,18 @@ $('qbUndo').onclick=()=>$('aUndo').click();
 
 function paintQuickBar(){
   const w=$('qbWho'), c=$('qbClock'); if(!w||!c) return;
-  if(S.status==='live'&&S.cur<TOTAL){
+  if((S.status==='live'||S.status==='paused')&&S.cur<TOTAL){
     const t=team(ownerOf(S.cur));
-    w.innerHTML=`${esc(t.name)} <span class="sm muted">Rd ${roundOf(S.cur)} · #${S.cur+1}</span>`;
-    const left=msLeft(), q=inQuiet(new Date());
-    c.textContent=q?'FROZEN':fmt(left);
-    c.className='qb-clock'+(q?' frozen':(left!==null&&left<120000?' low':''));
+    w.innerHTML=`${esc(t.name)} <span class="sm muted">Rd ${roundOf(S.cur)} · #${S.cur+1}${S.status==='paused'?' · paused':''}</span>`;
+    if(S.status==='paused'){
+      c.textContent=fmt(msLeft({live:true})); c.className='qb-clock frozen';
+    } else {
+      const left=msLeft(), q=inQuiet(new Date());
+      c.textContent=q?'FROZEN':fmt(left);
+      c.className='qb-clock'+(q?' frozen':(left!==null&&left<120000?' low':''));
+    }
   } else {
-    w.textContent = S.status==='setup'?'Not started':S.status==='paused'?'PAUSED':'Draft complete';
+    w.textContent = S.status==='setup'?'Not started':'Draft complete';
     c.textContent='—'; c.className='qb-clock';
   }
   $('qbPause').classList.toggle('hide',S.status!=='live');
