@@ -190,6 +190,7 @@ td.empty{color:#3d4a5f}
 .rline{display:flex;align-items:center;gap:7px;padding:3px 0;font-size:13px}
 .rline .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rline .rd{font-size:11px;color:var(--mut)}
+.slotpick{flex:1;min-width:0;font-size:13px;padding:5px 7px}
 .slot{display:inline-block;min-width:40px;text-align:center;font-size:10px;font-weight:800;
   letter-spacing:.03em;padding:2px 6px;border-radius:4px;background:var(--panel2);
   border:1px solid var(--line);color:var(--mut)}
@@ -773,6 +774,7 @@ let QUEUES= {};      // teamId -> {auto:bool,list:[{p,sport,pos}]}
 let KEEPERS={};      // teamId -> [{p,sport,pos}]
 let LOG   = [];
 let SKIPS = {};      // pickIndex -> {n:timesSkipped, ready:maxIdx it becomes eligible again}
+let SLOTASSIGN = {}; // teamId -> sport -> slotIndex -> playerName (manual lineup choices)
 let POOL  = [];      // player pool
 let poolLoaded = false;
 let SEATDRAFT = null;      // ditto for the admin seat editor
@@ -866,6 +868,7 @@ onValue(R('keepers'), s=>{ KEEPERS=s.val()||{}; paintAll(); paintKeepers(); });
 onValue(R('coadmins'), s=>{ COADMIN=s.val()||{}; recomputeAdmin(); paintAll(); paintCoAdmins(); });
 onValue(R('log'), s=>{ LOG=Object.values(s.val()||{}); paintLog(); });
 onValue(R('skips'), s=>{ SKIPS=s.val()||{}; paintAll(); });
+onValue(R('slotAssign'), s=>{ SLOTASSIGN=s.val()||{}; paintAll(); });
 
 const pushLog = txt => set(R('log/'+Date.now()+Math.floor(Math.random()*99)),
   {t:Date.now(),txt});
@@ -1202,22 +1205,43 @@ $('pRosSport').onclick=e=>{ const b=e.target.closest('.sbtn'); if(!b) return;
   $('pRosSport').querySelectorAll('.sbtn').forEach(x=>x.classList.toggle('on',x===b));
   paintMyRoster(); };
 
+/* writes/clears a manual slot choice for the signed-in team, and makes sure
+   the same player isn't left "double-booked" in an older slot override */
+async function setSlot(teamId,sport,slotIdx,playerName){
+  const cur=(SLOTASSIGN[teamId]&&SLOTASSIGN[teamId][sport])||{};
+  const patch={};
+  if(playerName){
+    Object.keys(cur).forEach(k=>{ if(+k!==slotIdx&&cur[k]===playerName) patch[k]=null; });
+  }
+  patch[slotIdx]=playerName||null;
+  await update(R('slotAssign/'+teamId+'/'+sport),patch);
+}
+
 function paintMyRoster(){
   const T=actingTeam(), host=$('pRoster'); if(!host) return;
   if(!T){ host.innerHTML='<div class="muted sm">Not signed in.</div>'; return; }
   const list=rosterOf(T,POSMAP()).filter(x=>x.sport===pRosSport);
-  const {slots,overflow}=fillSlots(pRosSport,list);
+  const {slots,overflow}=fillSlots(pRosSport,list,T);
   const open=slots.filter(x=>!x.player).length;
   host.innerHTML=`<div class="sm muted mb-16">${slots.length-open} of ${slots.length} filled`
-    +(open?` · needs ${open}`:' · full')+`</div>`
-    + slots.map(s=>`<div class="rline">
-        <span class="slot${s.player?'':' open'}">${esc(s.slot)}</span>
-        ${s.player?`<span class="nm">${esc(s.player.p)}</span>`
-                  +(s.player.kpr?'<span class="kpr">KPR</span>':`<span class="rd">Rd ${s.player.rd}</span>`)
-                  :'<span class="nm muted">— open —</span>'}
-      </div>`).join('')
+    +(open?` · needs ${open}`:' · full')+
+    ` · <span style="color:var(--acc)">pick your own slots below</span></div>`
+    + slots.map((s,idx)=>{
+        const eligible=list.filter(p=>fits(s.slot,p));
+        const opts=['<option value="">— empty —</option>'].concat(
+          eligible.map(p=>`<option value="${esc(p.p)}"${s.player&&s.player.p===p.p?' selected':''}>${esc(p.p)}</option>`));
+        return `<div class="rline">
+          <span class="slot${s.player?'':' open'}">${esc(s.slot)}</span>
+          <select class="slotpick" data-idx="${idx}">${opts.join('')}</select>
+          ${s.player?(s.player.kpr?'<span class="kpr">KPR</span>':`<span class="rd">Rd ${s.player.rd}</span>`)
+                     +(s.player.trd?'<span class="trd">TRD</span>':''):''}
+        </div>`;
+      }).join('')
     + (overflow.length?`<div class="poshd" style="margin-top:8px">Over the limit<span>${overflow.length}</span></div>`
         +overflow.map(x=>rosterLine(x)).join(''):'');
+  host.querySelectorAll('.slotpick').forEach(sel=>{
+    sel.onchange=()=>setSlot(T,pRosSport,+sel.dataset.idx,sel.value);
+  });
 }
 
 function paintMyPicks(){
@@ -1276,7 +1300,7 @@ function gridTable(sport,pm){
   const orderedTeams=SEAT.map(tid=>team(tid)); // live draft order, not TEAMS' fixed declaration order
   const filled=orderedTeams.map(t=>{
     const list=rosterOf(t.id,pm).filter(x=>x.sport===sport);
-    return {t,...fillSlots(sport,list)};
+    return {t,...fillSlots(sport,list,t.id)};
   });
   const slots=SLOTS[sport]||[];
   const maxOver=Math.max(0,...filled.map(f=>f.overflow.length));
@@ -1608,14 +1632,24 @@ function fits(slot,player){
   }
   return posTokens(player).some(t=>(ELIG[slot]||[]).includes(t));
 }
-/* greedy fill: scarcest slots first so a C isn't wasted in a UT */
-function fillSlots(sport,players){
+/* greedy fill: scarcest slots first so a C isn't wasted in a UT.
+   If teamId is given, manual slot choices (SLOTASSIGN) are honored first —
+   only slots nobody has manually claimed get auto-filled. */
+function fillSlots(sport,players,teamId){
   const slots=(SLOTS[sport]||[]).map(s=>({slot:s,player:null}));
-  const order=[...slots.keys()].sort((a,b)=>{
+  const left=players.slice();
+  const ov=(teamId&&SLOTASSIGN[teamId]&&SLOTASSIGN[teamId][sport])||{};
+  Object.keys(ov).forEach(idxStr=>{
+    const idx=+idxStr, name=ov[idxStr];
+    if(!name||!slots[idx]||slots[idx].player) return;
+    const pi=left.findIndex(p=>p.p===name);
+    if(pi<0||!fits(slots[idx].slot,left[pi])) return;
+    slots[idx].player=left.splice(pi,1)[0];
+  });
+  const order=[...slots.keys()].filter(i=>!slots[i].player).sort((a,b)=>{
     const rank=s=>s==='B'?3:s==='UT'?2:['Flex','G','F','MI','CI','P'].includes(s)?1:0;
     return rank(slots[a].slot)-rank(slots[b].slot);
   });
-  const left=players.slice();
   for(const i of order){
     const s=slots[i];
     let best=-1,bestN=1e9;
