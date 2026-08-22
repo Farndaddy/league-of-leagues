@@ -221,6 +221,8 @@ td.empty{color:#3d4a5f}
 .toggle div{flex:1}
 .toggle b{display:block;font-size:14px}
 .toggle span{font-size:12px;color:var(--mut)}
+.hl-timer{color:var(--warn);font-weight:800}
+.hl-imm{color:var(--acc);font-weight:800}
 
 /* ---------- Roster / admin ---------- */
 .grid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:11px}
@@ -435,8 +437,15 @@ td.empty{color:#3d4a5f}
       <label class="toggle">
         <input type="checkbox" id="qAuto">
         <div>
-          <b>Auto-pick from my queue</b>
+          <b>Auto-pick from my queue <span class="hl-timer">when timer runs out</span></b>
           <span>If my clock hits zero, take the top available player in my queue instead of skipping me.</span>
+        </div>
+      </label>
+      <label class="toggle">
+        <input type="checkbox" id="qAutoImmediate">
+        <div>
+          <b>Auto-pick from my queue <span class="hl-imm">immediately when my turn</span></b>
+          <span>The moment it becomes my turn, take the top available player in my queue right away — don't wait for the clock.</span>
         </div>
       </label>
       <div class="search">
@@ -833,15 +842,15 @@ const fmt=ms=>{ if(ms==null) return '--:--';
              : `${m}:${String(ss).padStart(2,'0')}`; };
 
 /* ===== Firebase wiring ===== */
-onValue(R('state'), s=>{ if(s.exists()) S={...S,...s.val()}; paintAll(); });
+onValue(R('state'), s=>{ if(s.exists()) S={...S,...s.val()}; paintAll(); checkImmediateAutoPick(); });
 onValue(R('seatOrder'), s=>{
   const v=s.val();
   if(Array.isArray(v)&&v.length===12) SEAT=v.slice();
   paintAll(); paintSeatEditor();
 });
-onValue(R('picks'), s=>{ PICKS=s.val()||{}; paintAll(); });
+onValue(R('picks'), s=>{ PICKS=s.val()||{}; paintAll(); checkImmediateAutoPick(); });
 onValue(R('overrides'), s=>{ OVER=s.val()||{}; paintAll(); });
-onValue(R('queues'), s=>{ QUEUES=s.val()||{}; paintQueue(); });
+onValue(R('queues'), s=>{ QUEUES=s.val()||{}; paintQueue(); checkImmediateAutoPick(); });
 onValue(R('keepers'), s=>{ KEEPERS=s.val()||{}; paintAll(); paintKeepers(); });
 onValue(R('coadmins'), s=>{ COADMIN=s.val()||{}; recomputeAdmin(); paintAll(); paintCoAdmins(); });
 onValue(R('log'), s=>{ LOG=Object.values(s.val()||{}); paintLog(); });
@@ -964,6 +973,28 @@ async function submitPick(idx,player,sport,pos,byAuto){
   mirror([pickPayload(idx,rec)]);   // fire-and-forget to the Google Sheet
   if(idx===S.cur) await advance(idx,null,false);
   return {ok:true};
+}
+
+/* "immediately when my turn" checker — fires once per pick-slot, the moment
+   that slot becomes current, rather than waiting for the clock to expire. */
+let immediateTriedIdx=-1;
+async function checkImmediateAutoPick(){
+  if(S.status!=='live') return;
+  const idx=S.cur;
+  if(idx==null||PICKS[idx]) return;
+  if(idx===immediateTriedIdx) return;
+  const tid=ownerOf(idx);
+  const q=QUEUES[tid];
+  if(!(q&&q.autoImmediate&&Array.isArray(q.list)&&q.list.length)) return;
+  immediateTriedIdx=idx; // one attempt per slot — don't retry mid-turn if queue was empty
+  const gone=taken();
+  const nxt=q.list.find(x=>!gone.has(x.p.toLowerCase()));
+  if(!nxt) return;
+  const res=await submitPick(idx,nxt.p,nxt.sport,nxt.pos,true);
+  if(res.ok){
+    const rest=q.list.filter(x=>x.p!==nxt.p);
+    set(R('queues/'+tid+'/list'),rest);
+  }
 }
 
 /* expiry checker — any open client can trigger it */
@@ -1340,6 +1371,7 @@ function addToQueue(name){
   set(R('queues/'+ME+'/list'),[...cur,{p:src.p,sport:src.sport||'',pos:src.pos||''}]);
 }
 $('qAuto').onchange=e=>{ if(ME) set(R('queues/'+ME+'/auto'),e.target.checked); };
+$('qAutoImmediate').onchange=e=>{ if(ME) set(R('queues/'+ME+'/autoImmediate'),e.target.checked); };
 $('qSearch').addEventListener('input',()=>{
   const q=$('qSearch').value.toLowerCase().trim();
   const box=$('qResults');
@@ -1366,6 +1398,7 @@ function paintQueue(){
   $('qBody').classList.toggle('hide',!ME);
   if(!ME) return;
   $('qAuto').checked=!!(QUEUES[ME]&&QUEUES[ME].auto);
+  $('qAutoImmediate').checked=!!(QUEUES[ME]&&QUEUES[ME].autoImmediate);
   const list=myQueue(), gone=taken();
   $('qCount').textContent=`(${list.length})`;
   $('qList').innerHTML=list.length?list.map((x,i)=>{
