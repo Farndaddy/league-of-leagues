@@ -159,7 +159,7 @@ td.empty{color:#3d4a5f}
 .nextup .soon{color:var(--good);font-weight:700}
 .ordrd{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
   color:var(--mut);background:var(--panel2);border:1px solid var(--line);border-radius:7px;
-  padding:5px 10px;margin:12px 0 6px;position:sticky;top:96px;z-index:5}
+  padding:5px 10px;margin:12px 0 6px}
 .ordrd:first-child{margin-top:0}
 .ordrow{display:flex;align-items:center;gap:10px;padding:9px 11px;background:var(--panel);
   border:1px solid var(--line);border-radius:9px;margin-bottom:5px}
@@ -173,7 +173,6 @@ td.empty{color:#3d4a5f}
   .ordrow{padding:8px 9px;gap:8px}
   .ordno{min-width:32px;font-size:12px}
   .ordplayer{font-size:13px}
-  .ordrd{top:88px}
 }
 .pfilters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;align-items:flex-end}
 .pfilters>div{min-width:130px}
@@ -1257,14 +1256,15 @@ function paintBoard(){
 /* teams across the top, roster slots down the side */
 const SPORT_HEX={NFL:'#ff6b6b',NBA:'#60a5fa',MLB:'#fbbf24'};
 function gridTable(sport,pm){
-  const filled=TEAMS.map(t=>{
+  const orderedTeams=SEAT.map(tid=>team(tid)); // live draft order, not TEAMS' fixed declaration order
+  const filled=orderedTeams.map(t=>{
     const list=rosterOf(t.id,pm).filter(x=>x.sport===sport);
     return {t,...fillSlots(sport,list)};
   });
   const slots=SLOTS[sport]||[];
   const maxOver=Math.max(0,...filled.map(f=>f.overflow.length));
   let html='<table><tr><th class="rnd">Slot</th>'+
-    TEAMS.map(t=>`<th><div>${esc(t.name)}</div><div class="sub">${esc(t.owner)}</div></th>`).join('')+'</tr>';
+    orderedTeams.map(t=>`<th><div>${esc(t.name)}</div><div class="sub">${esc(t.owner)}</div></th>`).join('')+'</tr>';
   slots.forEach((slot,r)=>{
     html+=`<tr><td class="rnd">${esc(slot)}</td>`+
       filled.map(f=>{ const p=f.slots[r].player;
@@ -1733,17 +1733,32 @@ $('aQuietGo').onclick=()=>{
     quietS:+$('aQuietS').value,quietE:+$('aQuietE').value});
   pushLog('Quiet hours updated'); };
 
+/* If a traded pick was already made before the trade was entered, the
+   player has to move to the new owner's roster too — not just future
+   ownership of the still-open pick. Patches picks/<idx>/team in place
+   and re-mirrors that pick to the Sheet so the backup stays correct. */
+async function movePickIfAlreadyMade(idx,newTeamId){
+  const rec=PICKS[idx];
+  if(!rec) return;
+  await set(R('picks/'+idx+'/team'),newTeamId);
+  const updated={...rec,team:newTeamId};
+  mirror([pickPayload(idx,updated)]);
+}
+
 $('aSwapGo').onclick=async()=>{
   const a=+$('aSwapA').value-1, b=+$('aSwapB').value-1;
   if(isNaN(a)||isNaN(b)||a<0||b<0||a>=TOTAL||b>=TOTAL) return alert('Enter two valid pick numbers.');
   const oa=ownerOf(a), ob=ownerOf(b);
   await update(R('overrides'),{[a]:ob,[b]:oa});
+  await movePickIfAlreadyMade(a,ob);
+  await movePickIfAlreadyMade(b,oa);
   pushLog(`TRADE: pick #${a+1} → ${team(ob).name}, pick #${b+1} → ${team(oa).name}`);
   $('aSwapA').value=''; $('aSwapB').value=''; };
 $('aReassignGo').onclick=async()=>{
   const p=+$('aReassignP').value-1, t=$('aReassignT').value;
   if(isNaN(p)||p<0||p>=TOTAL) return alert('Enter a valid pick number.');
   await set(R('overrides/'+p),t);
+  await movePickIfAlreadyMade(p,t);
   pushLog(`TRADE: pick #${p+1} → ${team(t).name}`);
   $('aReassignP').value=''; };
 
