@@ -117,17 +117,18 @@ th,td{padding:5px 7px;border-bottom:1px solid var(--line);
   border-right:1px solid var(--line);white-space:nowrap}
 th{position:sticky;top:0;background:var(--panel2);z-index:2;font-size:11px;
   text-align:left;color:var(--mut)}
-.boardwrap table th:not(.rnd){min-width:130px;max-width:130px}
+.boardwrap table th:not(.rnd){min-width:140px;max-width:140px;white-space:normal}
 th .sub{display:block;font-size:10px;opacity:.7;font-weight:400}
 td.rnd,th.rnd{position:sticky;left:0;background:var(--panel2);z-index:1;
   font-weight:800;text-align:center;color:var(--mut);min-width:34px}
 .dir{display:block;font-size:9px;font-weight:400;opacity:.6;line-height:1}
 th.rnd{z-index:3}
-td.cell{min-width:132px;max-width:132px;overflow:hidden;text-overflow:ellipsis}
+td.cell{min-width:140px;max-width:140px;min-height:64px;height:64px;
+  overflow:visible;white-space:normal;vertical-align:middle;box-sizing:border-box}
 td.cell .pk{display:block;font-weight:600;white-space:normal;line-height:1.25;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  overflow-wrap:break-word;word-break:break-word}
 td.cell .sub{display:block;font-size:10px;color:var(--mut);
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  white-space:normal;overflow-wrap:break-word;word-break:break-word;margin-top:2px}
 td.sp-NFL{background:#ff6b6b26}
 td.sp-NBA{background:#60a5fa26}
 td.sp-MLB{background:#fbbf2426}
@@ -195,6 +196,9 @@ td.empty{color:#3d4a5f}
 .slot.open{border-style:dashed;opacity:.55}
 .kpr{font-size:10px;font-weight:800;color:#f59e0b;background:#f59e0b18;
   border:1px solid #f59e0b44;border-radius:4px;padding:1px 5px;letter-spacing:.03em}
+.trd{font-size:10px;font-weight:800;color:var(--acc);background:#4f9dff1a;
+  border:1px solid #4f9dff44;border-radius:4px;padding:1px 5px;letter-spacing:.03em;
+  margin-left:3px;white-space:nowrap}
 .mine{font-size:10px;font-weight:700;color:var(--acc);background:#4f9dff1a;
   border:1px solid #4f9dff44;border-radius:4px;padding:1px 5px;vertical-align:2px}
 .ct-NFL{color:var(--nfl)} .ct-NBA{color:var(--nba)} .ct-MLB{color:var(--mlb)}
@@ -1269,7 +1273,7 @@ function gridTable(sport,pm){
     html+=`<tr><td class="rnd">${esc(slot)}</td>`+
       filled.map(f=>{ const p=f.slots[r].player;
         return `<td class="cell${p?'':' empty'}">`+
-          (p?`<span class="pk">${esc(p.p)}${p.kpr?' <span class="kpr">KPR</span>':''}</span>`
+          (p?`<span class="pk">${esc(p.p)}${p.kpr?' <span class="kpr">KPR</span>':''}${p.trd?' <span class="trd">TRD</span>':''}</span>`
             :'<span class="sub">—</span>')+'</td>';}).join('')+'</tr>';
   });
   for(let i=0;i<maxOver;i++){
@@ -1346,7 +1350,7 @@ function paintTheBoard(){
       const traded = own!==origOwner(i);
       tds+=`<td class="${cls.join(' ')}">`+
         (pk
-          ? `<span class="pk">${esc(pk.p)}</span><span class="sub">#${i+1}${traded?' · '+esc(team(own).name):''}</span>`
+          ? `<span class="pk">${esc(pk.p)}${traded?' <span class="trd">TRD</span>':''}</span><span class="sub">#${i+1}${traded?' · '+esc(team(own).name):''}</span>`
           : `<span class="pk">#${i+1}</span><span class="sub">${traded?`<span class="tr">TRADE</span> ${esc(team(own).name)}`:''}</span>`)+
         '</td>';
     }
@@ -1615,10 +1619,11 @@ function fillSlots(sport,players){
 function rosterOf(teamId,pm){
   const out=[];
   (KEEPERS[teamId]||[]).forEach(k=>out.push({
-    p:k.p, sport:sportOf(k.p,k.sport,pm), pos:posOf(k.p,k.pos,pm), kpr:true, rd:null }));
+    p:k.p, sport:sportOf(k.p,k.sport,pm), pos:posOf(k.p,k.pos,pm), kpr:true, trd:false, rd:null }));
   Object.keys(PICKS).map(Number).sort((a,b)=>a-b).forEach(i=>{
     const x=PICKS[i]; if(x.team!==teamId) return;
-    out.push({ p:x.p, sport:sportOf(x.p,x.sport,pm), pos:posOf(x.p,x.pos,pm), kpr:false, rd:roundOf(i) });
+    out.push({ p:x.p, sport:sportOf(x.p,x.sport,pm), pos:posOf(x.p,x.pos,pm), kpr:false,
+      trd:origOwner(i)!==teamId, rd:roundOf(i) });
   });
   return out;
 }
@@ -1628,6 +1633,7 @@ function rosterLine(x){
     ${x.sport?`<span class="pill ${x.sport}">${x.sport}</span>`:'<span class="pill" style="opacity:.35">—</span>'}
     <span class="nm">${esc(x.p)}</span>
     ${x.kpr?'<span class="kpr">KPR</span>':`<span class="rd">Rd ${x.rd}</span>`}
+    ${x.trd?'<span class="trd">TRD</span>':''}
   </div>`;
 }
 
