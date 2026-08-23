@@ -501,7 +501,8 @@ td.empty{color:#3d4a5f}
         <button class="btn sm gray" data-set="30">30m</button>
         <button class="btn sm gray" data-set="60">60m</button>
         <button class="btn sm gray" data-set="240">4h</button>
-        <input id="aSetCustom" type="number" placeholder="min" style="width:80px">
+        <input id="aSetHrs" type="number" placeholder="hr" min="0" style="width:60px">
+        <input id="aSetCustom" type="number" placeholder="min" min="0" style="width:70px">
         <button class="btn sm" id="aSetGo">Set</button>
       </div>
       <div class="arow">
@@ -509,7 +510,8 @@ td.empty{color:#3d4a5f}
         <button class="btn sm gray" data-add="15">+15m</button>
         <button class="btn sm gray" data-add="30">+30m</button>
         <button class="btn sm gray" data-add="60">+1hr</button>
-        <input id="aAddCustom" type="number" placeholder="min" style="width:80px">
+        <input id="aAddHrs" type="number" placeholder="hr" min="0" style="width:60px">
+        <input id="aAddCustom" type="number" placeholder="min" min="0" style="width:70px">
         <button class="btn sm" id="aAddGo">Add</button>
         <button class="btn sm gray" id="aReset">Reset clock</button>
       </div>
@@ -1816,12 +1818,19 @@ function setTimerNow(mins){
   pushLog(`Timer set to ${mins}m`);
 }
 document.querySelectorAll('[data-set]').forEach(b=>b.onclick=()=>setTimerNow(+b.dataset.set));
-$('aSetGo').onclick=()=>{ const v=+$('aSetCustom').value; if(v>0) setTimerNow(v); };
+$('aSetGo').onclick=()=>{
+  const hrs=+$('aSetHrs').value||0, mins=+$('aSetCustom').value||0;
+  const v=hrs*60+mins;
+  if(v>0) setTimerNow(v);
+};
 document.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{
   update(R('state'),{extraMs:(S.extraMs||0)+ +b.dataset.add*60000});
   pushLog(`Clock extended ${b.dataset.add}m`); });
-$('aAddGo').onclick=()=>{ const v=+$('aAddCustom').value; if(v>0){
-  update(R('state'),{extraMs:(S.extraMs||0)+v*60000}); pushLog(`Clock extended ${v}m`); } };
+$('aAddGo').onclick=()=>{
+  const hrs=+$('aAddHrs').value||0, mins=+$('aAddCustom').value||0;
+  const v=hrs*60+mins;
+  if(v>0){ update(R('state'),{extraMs:(S.extraMs||0)+v*60000}); pushLog(`Clock extended ${v}m`); }
+};
 $('aReset').onclick=()=>{
   const patch={startedAt:Date.now(),extraMs:0,timerOverrideMin:null};
   if(S.status==='paused') patch.pausedAt=Date.now();
@@ -1947,15 +1956,20 @@ function paintSched(){
       <span class="sm muted">from</span>
       <input type="time" data-time="${i}" value="${hhmm(b.h,b.m)}" style="width:120px">
       <span class="sm muted">use a</span>
-      <input type="number" data-min="${i}" value="${b.t}" min="1" max="600" style="width:80px">
-      <span class="sm muted">min clock</span>
+      <input type="number" data-hr="${i}" value="${Math.floor(b.t/60)}" min="0" placeholder="hr" style="width:60px">
+      <input type="number" data-min="${i}" value="${b.t%60}" min="0" max="59" placeholder="min" style="width:60px">
+      <span class="sm muted">clock</span>
       <button class="ic" data-del="${i}">✕</button>
     </div>`).join('')||'<div class="muted sm">No blocks — the manual timer is used.</div>';
   host.querySelectorAll('[data-time]').forEach(el=>el.onchange=e=>{
     const [h,m]=e.target.value.split(':').map(Number);
     SCHED[+e.target.dataset.time].h=h; SCHED[+e.target.dataset.time].m=m; paintSched(); });
+  host.querySelectorAll('[data-hr]').forEach(el=>el.onchange=e=>{
+    const i=+e.target.dataset.hr, mins=SCHED[i].t%60;
+    SCHED[i].t=Math.max(1,(+e.target.value||0)*60+mins); paintSched(); });
   host.querySelectorAll('[data-min]').forEach(el=>el.onchange=e=>{
-    SCHED[+e.target.dataset.min].t=Math.max(1,+e.target.value||1); paintSched(); });
+    const i=+e.target.dataset.min, hrs=Math.floor(SCHED[i].t/60);
+    SCHED[i].t=Math.max(1,hrs*60+(+e.target.value||0)); paintSched(); });
   host.onclick=e=>{ const d=e.target.dataset.del;
     if(d!==undefined){ SCHED.splice(+d,1); paintSched(); } };
   const n=$('aSchedNow');
