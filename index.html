@@ -268,6 +268,9 @@
   .pos-D   { background: #f43f5e22; color: #f43f5e; }
   .pos-BN  { background: #33415533; color: #64748b; }
   .pos-IR  { background: #7f1d1d33; color: #fca5a5; }
+  .pos-IL  { background: #7f1d1d33; color: #fca5a5; }
+  .pos-ILP { background: #7f1d1d66; color: #f87171; }
+  .pos-NA  { background: #7c3aed22; color: #c4b5fd; }
   .pos-flex { background: #fbbf2422; color: #fbbf24; }
   .roster-player-name { font-size: 12px; color: var(--text); flex: 1; }
   .roster-empty { text-align: center; padding: 60px 20px; color: var(--text-m); font-size: 14px; }
@@ -1563,7 +1566,7 @@ function renderKeepers(){
   const yearPills = document.getElementById('kp-year-pills');
   if(S.kpView==='year'){
     yearPills.style.display='flex';
-    yearPills.innerHTML = [2025,2024,2023,2022].map(y=>`
+    yearPills.innerHTML = [2026,2025,2024,2023,2022].map(y=>`
       <button class="pill ${y===S.kpYear?'active':''}" onclick="setKpYear(${y})">${seasonLabels[y]}</button>
     `).join('');
   } else {
@@ -1590,7 +1593,7 @@ function setKpYear(yr){
 function renderKeepersAllTime(){
   const el = document.getElementById('kp-content');
   // Collect all teams across keeper years
-  const yearCols = [2025,2024,2023,2022];
+  const yearCols = [2026,2025,2024,2023,2022];
   // Get union of all teams (by owner)
   const teamSet = new Map(); // team → {team, owner, idx}
   for(const yr of CONFIG.DRAFT_YEARS){
@@ -1882,8 +1885,19 @@ function posClass(pos){
   if(p==='D') return 'pos-D';
   if(p==='BN') return 'pos-BN';
   if(p==='IR') return 'pos-IR';
+  if(p==='IL+') return 'pos-ILP';
+  if(p==='IL') return 'pos-IL';
+  if(p==='NA') return 'pos-NA';
   return 'pos-flex';
 }
+
+// Per-sport reserve/inactive categories, shown in their own labeled section
+// on each roster card (mirrors how NFL's IR has always been broken out).
+const RESERVE_GROUPS = {
+  NFL: [{ pos: 'IR', label: 'IR' }],
+  NBA: [{ pos: 'IL', label: 'IL' }, { pos: 'IL+', label: 'IL+' }],
+  MLB: [{ pos: 'IL', label: 'IL' }, { pos: 'NA', label: 'Minors (NA)' }],
+};
 
 function setRoSport(sport){
   ROSTER_STATE.sport = sport;
@@ -1938,11 +1952,13 @@ function renderRosters(){
 
   statusEl.textContent = `${yearData.length} teams · ${yearData.reduce((s,t)=>s+t.players.length,0)} total players · ${sport} ${ROSTER_STATE.year} Final Rosters`;
 
+  const reserveGroups = RESERVE_GROUPS[sport] || [];
+  const reservePosSet = new Set(reserveGroups.map(g=>g.pos));
+
   grid.innerHTML = yearData.map(team=>{
     const owner = TEAM_OWNER_MAP[team.team] || '';
-    const starters = team.players.filter(p=>p.pos!=='BN'&&p.pos!=='IR');
+    const starters = team.players.filter(p=>p.pos!=='BN'&&!reservePosSet.has(p.pos));
     const bench = team.players.filter(p=>p.pos==='BN');
-    const ir = team.players.filter(p=>p.pos==='IR');
 
     const renderRows = (players) => players.map(p=>`
       <div class="roster-player-row">
@@ -1954,10 +1970,13 @@ function renderRosters(){
     if(bench.length){
       benchers = `<div style="padding:4px 14px;font-size:10px;font-weight:700;color:var(--text-m);text-transform:uppercase;letter-spacing:.05em;background:var(--surface);border-top:1px solid var(--border)">Bench</div>${renderRows(bench)}`;
     }
-    let irRows = '';
-    if(ir.length){
-      irRows = `<div style="padding:4px 14px;font-size:10px;font-weight:700;color:var(--text-m);text-transform:uppercase;letter-spacing:.05em;background:var(--surface);border-top:1px solid var(--border)">IR</div>${renderRows(ir)}`;
-    }
+    let reserveRows = '';
+    reserveGroups.forEach(g=>{
+      const list = team.players.filter(p=>p.pos===g.pos);
+      if(list.length){
+        reserveRows += `<div style="padding:4px 14px;font-size:10px;font-weight:700;color:var(--text-m);text-transform:uppercase;letter-spacing:.05em;background:var(--surface);border-top:1px solid var(--border)">${esc(g.label)}</div>${renderRows(list)}`;
+      }
+    });
 
     return `<div class="roster-card">
       <div class="roster-card-header">
@@ -1967,7 +1986,7 @@ function renderRosters(){
       <div class="roster-player-list">
         ${renderRows(starters)}
         ${benchers}
-        ${irRows}
+        ${reserveRows}
       </div>
     </div>`;
   }).join('');
