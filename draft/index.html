@@ -382,17 +382,9 @@ td.empty{color:#3d4a5f}
           <option value="all">Everyone</option>
         </select>
       </div>
-      <div id="plTypeWrap" class="hide">
-        <p class="lbl">Type</p>
-        <select id="plType">
-          <option value="ALL">Batters &amp; pitchers</option>
-          <option value="Batter">Batters only</option>
-          <option value="Pitcher">Pitchers only</option>
-        </select>
-      </div>
       <div>
         <p class="lbl">Position</p>
-        <select id="plPos"><option value="ALL">All positions</option></select>
+        <select id="plPos"></select>
       </div>
       <div style="flex:1;min-width:180px">
         <p class="lbl">Search</p>
@@ -645,7 +637,7 @@ td.empty{color:#3d4a5f}
         <span class="sm muted" id="aHookMsg"></span>
       </div>
       <p class="sm muted" style="margin:8px 0 0">
-        Picks land in the 2026 Live Draft Board grid starting at C3, and in the Draft Log tab.
+        Picks land in the 2026 Draft Board grid starting at C3, and in the Draft Log tab.
       </p>
     </div>
     </div>
@@ -1498,6 +1490,58 @@ function playerType(p){
   return toks.some(t=>PITCH_POS.includes(t)) ? 'Pitcher' : 'Batter';
 }
 
+/* Position dropdown: fixed per-sport lists, in the league's chosen order.
+   Each row matches specific raw position tokens, except the MLB Batters/
+   Pitchers-only rows, which reuse playerType() so the Ohtani-style
+   (Batter)/(Pitcher) name suffix rule still applies. No "K" — this league
+   doesn't roster kickers, so they're left out everywhere. */
+const POS_OPTIONS = {
+  NFL: [
+    {v:'OFF',  l:'Offense', toks:['QB','RB','WR','TE','DST']},
+    {v:'QB',   l:'QB',      toks:['QB']},
+    {v:'RB',   l:'RB',      toks:['RB']},
+    {v:'WR',   l:'WR',      toks:['WR']},
+    {v:'TE',   l:'TE',      toks:['TE']},
+    {v:'FLEX', l:'Flex',    toks:['RB','WR','TE']},
+    {v:'DST',  l:'DST',     toks:['DST']},
+    {v:'IDP',  l:'IDP',     toks:['LB','S','CB','DE','DT']},
+    {v:'LB',   l:'LB',      toks:['LB']},
+    {v:'DB',   l:'DB',      toks:['S','CB']},
+    {v:'DL',   l:'DL',      toks:['DE','DT']},
+  ],
+  MLB: [
+    {v:'ALL', l:'All'},
+    {v:'BAT', l:'Batters Only',  type:'Batter'},
+    {v:'C',   l:'C',   toks:['C']},
+    {v:'1B',  l:'1B',  toks:['1B']},
+    {v:'2B',  l:'2B',  toks:['2B']},
+    {v:'3B',  l:'3B',  toks:['3B']},
+    {v:'SS',  l:'SS',  toks:['SS']},
+    {v:'CI',  l:'CI',  toks:['1B','3B']},
+    {v:'MI',  l:'MI',  toks:['2B','SS']},
+    {v:'OF',  l:'OF',  toks:['OF','LF','CF','RF']},
+    {v:'PIT', l:'Pitchers Only', type:'Pitcher'},
+    {v:'SP',  l:'SP',  toks:['SP']},
+    {v:'RP',  l:'RP',  toks:['RP']},
+  ],
+  NBA: [
+    {v:'ALL', l:'All'},
+    {v:'PG', l:'PG', toks:['PG']},
+    {v:'SG', l:'SG', toks:['SG']},
+    {v:'G',  l:'G',  toks:['PG','SG']},
+    {v:'SF', l:'SF', toks:['SF']},
+    {v:'PF', l:'PF', toks:['PF']},
+    {v:'F',  l:'F',  toks:['SF','PF']},
+    {v:'C',  l:'C',  toks:['C']},
+  ],
+};
+function posMatches(p, opt){
+  if(opt.v==='ALL') return true;
+  if(opt.type) return playerType(p)===opt.type;
+  const toks=String(p.pos||'').split(',').map(s=>s.trim().toUpperCase());
+  return opt.toks.some(t=>toks.includes(t));
+}
+
 $('plSport').onchange=()=>{
   if(!plUserPickedRank) $('plRank').value=DEFAULT_RANK[$('plSport').value]||'pre';
   paintPlayers();
@@ -1505,31 +1549,23 @@ $('plSport').onchange=()=>{
 $('plRank').onchange=()=>{ plUserPickedRank=true; paintPlayers(); };
 $('plAvail').onchange=paintPlayers;
 $('plPos').onchange=paintPlayers;
-$('plType').onchange=paintPlayers;
 $('plSearch').addEventListener('input',paintPlayers);
 
 function paintPlayers(){
   const sport=$('plSport').value;
   const rk=$('plRank').value;
   const avail=$('plAvail').value;
-  const posSel=$('plPos').value;
   const q=($('plSearch').value||'').toLowerCase().trim();
 
-  // keep the position dropdown in step with the sport
-  const posSet=[...new Set(POOL.filter(p=>p.sport===sport)
-    .flatMap(p=>String(p.pos||'').split(',').map(s=>s.trim()).filter(Boolean)))].sort();
+  // fixed position list per sport, in the league's chosen order
+  const opts=POS_OPTIONS[sport]||[];
   const cur=$('plPos').value;
-  $('plPos').innerHTML='<option value="ALL">All positions</option>'+
-    posSet.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');
-  $('plPos').value=posSet.includes(cur)||cur==='ALL'?cur:'ALL';
+  $('plPos').innerHTML=opts.map(o=>`<option value="${esc(o.v)}">${esc(o.l)}</option>`).join('');
+  $('plPos').value=opts.some(o=>o.v===cur)?cur:opts[0].v;
+  const posOpt=opts.find(o=>o.v===$('plPos').value)||opts[0];
 
-  // batter/pitcher only makes sense for baseball
-  $('plTypeWrap').classList.toggle('hide',sport!=='MLB');
   let list=POOL.filter(p=>p.sport===sport);
-  if(sport==='MLB'&&$('plType').value!=='ALL')
-    list=list.filter(p=>playerType(p)===$('plType').value);
-  if($('plPos').value!=='ALL')
-    list=list.filter(p=>String(p.pos||'').split(',').map(s=>s.trim()).includes($('plPos').value));
+  if(posOpt) list=list.filter(p=>posMatches(p,posOpt));
   if(q) list=list.filter(p=>p.p.toLowerCase().includes(q));
 
   list=list.map(p=>({...p,_h:holderOf(p.p)}));
