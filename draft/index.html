@@ -1260,11 +1260,18 @@ setInterval(()=>{
 /* ===== PICK view ===== */
 
 // which pick slots can I fill right now? (current + any of my earlier skipped slots)
+// Only while the draft is actually LIVE — paused/setup/done means nobody self-drafts,
+// including makeup picks on old skipped slots (that loop used to ignore S.status
+// entirely, which is how someone with an open makeup slot could still draft during
+// a pause). Admin's dedicated override tools (Admin tab "draft into a slot", the
+// ⚡ "draft for team on clock" button) are separate and intentionally still work
+// during a pause, since those are deliberate commissioner actions, not self-picks.
 function myOpenSlots(){
   if(!actingTeam()) return [];
+  if(S.status!=='live') return [];
   const out=[];
   const T=actingTeam();
-  if(S.status==='live'&&S.cur<TOTAL&&ownerOf(S.cur)===T&&!PICKS[S.cur]) out.push(S.cur);
+  if(S.cur<TOTAL&&ownerOf(S.cur)===T&&!PICKS[S.cur]) out.push(S.cur);
   for(let i=0;i<Math.min(MAXI()+1,TOTAL);i++)
     if(!PICKS[i]&&ownerOf(i)===T) out.push(i);
   return [...new Set(out)].sort((a,b)=>a-b);
