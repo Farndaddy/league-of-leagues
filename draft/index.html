@@ -88,6 +88,8 @@ h2{font-size:16px;margin:0 0 10px}
 .qb-who{font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .qb-clock{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;color:#8fc2ff;line-height:1.1}
 .qb-clock.low{color:#ff9d9d} .qb-clock.frozen{color:#fbc36a;font-size:15px}
+.qhelp{display:inline-block;margin-left:5px;cursor:pointer;opacity:.75;font-size:.85em;vertical-align:middle}
+.qhelp:active{opacity:1}
 .qb-acts{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .qb-sep{width:1px;height:20px;background:var(--line)}
 @media(max-width:600px){ .quickbar{top:88px;padding:9px} .qb-clock{font-size:19px} }
@@ -535,7 +537,7 @@ td.empty{color:#3d4a5f}
         <button class="btn sm gray" id="aReset">Reset clock</button>
       </div>
       <div class="arow">
-        <label class="sm muted"><input type="checkbox" id="aQuietOn" style="width:auto"> Quiet hours</label>
+        <label class="sm muted"><input type="checkbox" id="aQuietOn" style="width:auto"> Quiet Hours</label>
         <input id="aQuietS" type="number" min="0" max="23" style="width:70px"> to
         <input id="aQuietE" type="number" min="0" max="23" style="width:70px">
         <button class="btn sm" id="aQuietGo">Save</button>
@@ -889,6 +891,16 @@ function inQuiet(d){
   const h=d.getHours(), a=S.quietS, b=S.quietE;
   return a<b ? (h>=a&&h<b) : (h>=a||h<b);
 }
+/* Small "ⓘ" next to any "Quiet Hours" label, tap/click to explain — used
+   instead of a hover tooltip since most of this app is used on phones. */
+const quietHelpIcon = () =>
+  `<span class="qhelp" title="What's Quiet Hours?" onclick="event.stopPropagation();explainQuietHours()">ⓘ</span>`;
+function explainQuietHours(){
+  const s=S.quietS, e=S.quietE;
+  alert(`Quiet Hours (${s}:00–${e}:00) pauses the clock overnight so nobody's turn runs out while everyone's asleep. `+
+    `Whoever's up can still pick anytime — no penalty, no rush. It lifts on its own at the end of the window, `+
+    `or an admin can turn it off early in Admin → Clock.`);
+}
 // ms of quiet time between two timestamps (sampled per minute — plenty accurate)
 function quietMs(from,to){
   if(!S.quietOn||to<=from) return 0;
@@ -1194,12 +1206,12 @@ setInterval(()=>{
   const box=$('pTimerBox'), big=$('pClock2');
   if(box&&big){
     const q=inQuiet(new Date());
-    big.textContent = S.status==='paused' ? fmt(left) : S.status==='live' ? (q?'FROZEN':fmt(left)) : c.textContent;
+    big.innerHTML = S.status==='paused' ? fmt(left) : S.status==='live' ? (q?('Quiet Hours'+quietHelpIcon()):fmt(left)) : c.textContent;
     box.className='timerbox'+(S.status==='paused'?' frozen':q?' frozen':(S.status==='live'&&left!==null&&left<120000?' low':''));
   }
   const tid=ownerOf(S.cur);
   $('hOn').textContent = S.cur<TOTAL
-    ? `${team(tid).name} · Rd ${roundOf(S.cur)} · #${S.cur+1}`+(S.status==='paused'?' · paused':inQuiet(new Date())?' · quiet hrs':'')
+    ? `${team(tid).name} · Rd ${roundOf(S.cur)} · #${S.cur+1}`+(S.status==='paused'?' · paused':inQuiet(new Date())?' · Quiet Hours':'')
     : '';
 },500);
 
@@ -1230,7 +1242,7 @@ function renderPick(){
       <b>${forOther?`Drafting for ${esc(team(ACTING).name)}`:'You’re on the clock.'}</b>
       ${isNow?`Round ${roundOf(S.cur)}, pick #${S.cur+1}.`:''}
       ${slots.length>1||!isNow?`<span class="sm">${slots.length} open pick${slots.length>1?'s':''} — filling #${slots[0]+1} (Rd ${roundOf(slots[0])})</span>`:''}
-      ${inQuiet(new Date())?'<span class="sm">Clock is frozen for quiet hours — pick whenever you like.</span>':''}
+      ${inQuiet(new Date())?`<span class="sm">It's Quiet Hours — the clock is paused, but you can still pick anytime.${quietHelpIcon()}</span>`:''}
       </div>`;
   } else if(onClock) html=`<div class="banner info">Waiting on <b>${team(onClock).name}</b> — Round ${roundOf(S.cur)}, pick #${S.cur+1}.</div>`;
   bn.innerHTML=html;
@@ -2026,7 +2038,7 @@ $('aReset').onclick=()=>{
 $('aQuietGo').onclick=()=>{
   update(R('state'),{quietOn:$('aQuietOn').checked,
     quietS:+$('aQuietS').value,quietE:+$('aQuietE').value});
-  pushLog('Quiet hours updated'); };
+  pushLog('Quiet Hours updated'); };
 
 /* If a traded pick was already made before the trade was entered, the
    player has to move to the new owner's roster too — not just future
@@ -2399,7 +2411,7 @@ function paintQuickBar(){
       c.textContent=fmt(msLeft({live:true})); c.className='qb-clock frozen';
     } else {
       const left=msLeft(), q=inQuiet(new Date());
-      c.textContent=q?'FROZEN':fmt(left);
+      c.innerHTML=q?('Quiet Hours'+quietHelpIcon()):fmt(left);
       c.className='qb-clock'+(q?' frozen':(left!==null&&left<120000?' low':''));
     }
   } else {
