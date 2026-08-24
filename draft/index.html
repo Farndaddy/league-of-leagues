@@ -51,6 +51,14 @@ header{position:sticky;top:0;z-index:50;background:rgba(11,15,23,.96);
 .clock.low{color:var(--bad)} .clock.paused{color:var(--warn)}
 .onclock{font-size:12px;color:var(--mut);max-width:130px;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.presence-strip{display:flex;gap:5px;flex-wrap:wrap;padding:0 12px 8px;overflow-x:auto}
+.pchip{font-size:10px;font-weight:700;padding:3px 7px;border-radius:20px;
+  background:var(--panel2);color:var(--mut);border:1px solid var(--line);
+  white-space:nowrap;cursor:pointer;position:relative;padding-left:14px}
+.pchip::before{content:'';position:absolute;left:6px;top:50%;transform:translateY(-50%);
+  width:6px;height:6px;border-radius:50%;background:var(--mut)}
+.pchip.on{color:var(--txt);border-color:var(--good)}
+.pchip.on::before{background:var(--good)}
 nav{display:flex;gap:4px;padding:0 8px 8px;overflow-x:auto;scrollbar-width:none}
 nav::-webkit-scrollbar{display:none}
 .tab{padding:7px 13px;border-radius:8px;background:transparent;color:var(--mut);
@@ -301,6 +309,7 @@ td.empty{color:#3d4a5f}
       </div>
     </div>
   </div>
+  <div class="presence-strip" id="hPresence"></div>
   <nav>
     <button class="tab on" data-v="pick">My Team</button>
     <button class="tab" data-v="board">Draft Board</button>
@@ -710,7 +719,7 @@ td.empty{color:#3d4a5f}
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase, ref, onValue, set, update, get, runTransaction }
+import { getDatabase, ref, onValue, set, update, get, runTransaction, onDisconnect }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 const firebaseConfig = {
@@ -814,6 +823,8 @@ let KEEPERS={};      // teamId -> [{p,sport,pos}]
 let LOG   = [];
 let SKIPS = {};      // pickIndex -> {n:timesSkipped, ready:maxIdx it becomes eligible again}
 let LASTSKIP = null;  // one-level undo buffer for the most recent skip, see advance()
+let PRESENCE = {};    // teamId -> {sessionId:true, ...} — who's actually connected right now
+const SID = Math.random().toString(36).slice(2)+Date.now().toString(36); // this browser tab's session id
 let SLOTASSIGN = {}; // teamId -> sport -> slotIndex -> playerName (manual lineup choices)
 let HYPE_SEEN = {};  // teamId -> {photoId:true, ...} — which hype photos that team has already been shown
 // Post-pick hype photo rotation. To add more later, just append another
@@ -953,6 +964,36 @@ onValue(R('coadmins'), s=>{ COADMIN=s.val()||{}; recomputeAdmin(); paintAll(); p
 onValue(R('log'), s=>{ LOG=Object.values(s.val()||{}); paintLog(); });
 onValue(R('skips'), s=>{ SKIPS=s.val()||{}; paintAll(); });
 onValue(R('lastSkip'), s=>{ LASTSKIP=s.val()||null; paintAll(); });
+onValue(R('presence'), s=>{ PRESENCE=s.val()||{}; paintPresence(); });
+
+/* ===== Presence — who's actually connected right now =====
+   One write per browser tab, keyed by a random session id so signing in on
+   two devices (or two tabs) as the same team doesn't fight over one slot.
+   onDisconnect clears it automatically the moment this tab closes, loses
+   network, or the phone kills the background page — no heartbeat needed. */
+function startPresence(){
+  if(!ME) return;
+  const pRef=R('presence/'+ME+'/'+SID);
+  onDisconnect(pRef).remove();
+  set(pRef, Date.now());
+}
+function stopPresence(){
+  if(!ME) return;
+  set(R('presence/'+ME+'/'+SID), null);
+}
+function paintPresence(){
+  const el=$('hPresence'); if(!el) return;
+  el.innerHTML = TEAMS.map(t=>{
+    const on = !!(PRESENCE[t.id] && Object.keys(PRESENCE[t.id]).length);
+    return `<span class="pchip${on?' on':''}" data-p="${t.id}">${esc(t.label||t.name)}</span>`;
+  }).join('');
+  el.onclick=e=>{
+    const c=e.target.closest('[data-p]'); if(!c) return;
+    const t=team(c.dataset.p);
+    const on = !!(PRESENCE[t.id] && Object.keys(PRESENCE[t.id]).length);
+    alert(`${t.name} (${t.owner}) — ${on?'online right now':'not currently connected'}`);
+  };
+}
 onValue(R('hypeSeen'), s=>{ HYPE_SEEN=s.val()||{}; });
 onValue(R('slotAssign'), s=>{ SLOTASSIGN=s.val()||{}; paintAll(); });
 
@@ -1176,6 +1217,7 @@ function enter(){
   $('tabAdmin').classList.toggle('hide',!ADMIN);
   paintWho();
   loadPool(); paintAll(); flushQueue();
+  startPresence();
 }
 /* auto-enter is deliberately at the BOTTOM of this file — see note there */
 
@@ -2429,6 +2471,7 @@ setInterval(()=>{ if(ADMIN&&!$('v-admin').classList.contains('hide')) paintQuick
 $('hOut').onclick=()=>{
   const who = ME ? team(ME).name : 'spectator mode';
   if(!confirm(`Sign out of ${who} on this device?\n\nYou can sign back in with your PIN anytime. Your picks and queue are saved.`)) return;
+  stopPresence();
   localStorage.removeItem('lolDraft');
   location.reload();
 };
