@@ -247,6 +247,20 @@ td.empty{color:#3d4a5f}
   main{padding:9px}
   td.cell{min-width:112px;max-width:112px}
 }
+
+/* ---------- Post-pick hype photo ---------- */
+.hype-overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:999;
+  display:flex;align-items:center;justify-content:center;padding:20px}
+.hype-box{position:relative}
+.hype-box img{display:block;max-width:min(420px,92vw);max-height:85vh;
+  width:auto;height:auto;border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.6)}
+.hype-x{position:absolute;top:-16px;right:-16px;width:36px;height:36px;
+  border-radius:50%;background:#fff;color:#111;font-size:18px;font-weight:800;
+  box-shadow:0 3px 10px rgba(0,0,0,.5)}
+@media(max-width:600px){
+  .hype-overlay{padding:0}
+  .hype-box img{max-width:85vw;max-height:85vh}
+}
 </style>
 </head>
 <body>
@@ -617,6 +631,16 @@ td.empty{color:#3d4a5f}
       </div>
     </div>
 <div class="sec">
+      <h3>Post-pick hype photo</h3>
+      <label class="toggle" style="margin-bottom:0">
+        <input type="checkbox" id="aHypeOn">
+        <div>
+          <b>Show a hype photo popup after a real pick</b>
+          <span>Pops up only for the team that just drafted — not autopicks, not admin-entered picks. Rotates randomly without repeating a photo for someone until they've seen the whole set, then pauses on its own. Add more photos any time and it starts back up automatically.</span>
+        </div>
+      </label>
+    </div>
+<div class="sec">
       <h3>Co-admins</h3>
       <p class="sm muted" style="margin:0 0 10px">
         Give another owner admin rights. They sign in with their own team PIN and get
@@ -664,6 +688,13 @@ td.empty{color:#3d4a5f}
 
   </section>
 </main>
+</div>
+
+<div id="hypeModal" class="hype-overlay hide">
+  <div class="hype-box">
+    <button class="hype-x" id="hypeClose" aria-label="Close">✕</button>
+    <img id="hypeImg" src="" alt="Nice pick!">
+  </div>
 </div>
 
 <script type="module">
@@ -761,6 +792,7 @@ let S = {status:'setup',cur:0,timerMin:60,extraMs:0,startedAt:0,
          schedOn:false,
          // Plan A: 15-min all day, 3-min power block 6-10pm, 10-min tail
          sched:[{h:7,m:0,t:15},{h:18,m:0,t:3},{h:22,m:0,t:10}],
+         hypeOn:true,
          sheetHook:'https://script.google.com/macros/s/AKfycbxebGjRRVTkfkEwUeU3A7pc3UGl8jdMYAJONYRuTNEVQmuRKoxUl2Ix4_Hqoy0hvWpX/exec'};
 let PICKS = {};      // overallIndex -> {p,sport,pos,team,at,auto}
 let OVER  = {};      // overallIndex -> teamId (admin reassignments)
@@ -769,6 +801,19 @@ let KEEPERS={};      // teamId -> [{p,sport,pos}]
 let LOG   = [];
 let SKIPS = {};      // pickIndex -> {n:timesSkipped, ready:maxIdx it becomes eligible again}
 let SLOTASSIGN = {}; // teamId -> sport -> slotIndex -> playerName (manual lineup choices)
+let HYPE_SEEN = {};  // teamId -> {photoId:true, ...} — which hype photos that team has already been shown
+// Post-pick hype photo rotation. To add more later, just append another
+// {id:'hypeN', file:'hypeN.jpg'} here and drop the matching jpg in draft/hype/ —
+// everyone's rotation picks up new entries automatically.
+const HYPE_PHOTOS = [
+  {id:'hype1', file:'hype1.jpg'},
+  {id:'hype2', file:'hype2.jpg'},
+  {id:'hype3', file:'hype3.jpg'},
+  {id:'hype4', file:'hype4.jpg'},
+  {id:'hype5', file:'hype5.jpg'},
+  {id:'hype6', file:'hype6.jpg'},
+  {id:'hype7', file:'hype7.jpg'},
+];
 let POOL  = [];      // player pool
 let poolLoaded = false;
 let SEATDRAFT = null;      // ditto for the admin seat editor
@@ -862,6 +907,7 @@ onValue(R('keepers'), s=>{ KEEPERS=s.val()||{}; paintAll(); paintKeepers(); });
 onValue(R('coadmins'), s=>{ COADMIN=s.val()||{}; recomputeAdmin(); paintAll(); paintCoAdmins(); });
 onValue(R('log'), s=>{ LOG=Object.values(s.val()||{}); paintLog(); });
 onValue(R('skips'), s=>{ SKIPS=s.val()||{}; paintAll(); });
+onValue(R('hypeSeen'), s=>{ HYPE_SEEN=s.val()||{}; });
 onValue(R('slotAssign'), s=>{ SLOTASSIGN=s.val()||{}; paintAll(); });
 
 const pushLog = txt => set(R('log/'+Date.now()+Math.floor(Math.random()*99)),
@@ -968,7 +1014,7 @@ async function advance(fromIdx,reason,wasSkip){
   if(reason) pushLog(reason);
 }
 
-async function submitPick(idx,player,sport,pos,byAuto){
+async function submitPick(idx,player,sport,pos,byAuto,selfPick){
   const snap=await get(R('picks/'+idx));
   if(snap.exists()) return {ok:false,msg:'That pick was already made.'};
   const dup=Object.values(PICKS).some(x=>x.p.toLowerCase()===player.toLowerCase());
@@ -980,7 +1026,28 @@ async function submitPick(idx,player,sport,pos,byAuto){
   pushLog(`${team(tid).name} — Rd ${roundOf(idx)} (#${idx+1}) — ${player}${byAuto?' (auto)':''}`);
   mirror([pickPayload(idx,rec)]);   // fire-and-forget to the Google Sheet
   if(idx===S.cur) await advance(idx,null,false);
+  // Hype photo popup: only for a real, self-made pick (not autopicks, not
+  // admin/co-admin picking on someone else's behalf) — callers pass selfPick=true
+  // only from the team's own "Draft" buttons.
+  if(selfPick && !byAuto) maybeShowHype(tid);
   return {ok:true};
+}
+
+/* ===== Post-pick hype photo ===== */
+async function maybeShowHype(tid){
+  try{
+    if(S.hypeOn===false) return;               // admin toggle off
+    const seen=HYPE_SEEN[tid]||{};
+    const unseen=HYPE_PHOTOS.filter(h=>!seen[h.id]);
+    if(!unseen.length) return;                 // this team has seen the whole set — stay quiet
+    const pick=unseen[Math.floor(Math.random()*unseen.length)];
+    await update(R('hypeSeen/'+tid),{[pick.id]:true});
+    showHypePhoto(pick.file);
+  }catch(e){ console.warn('hype photo skipped',e); }
+}
+function showHypePhoto(file){
+  $('hypeImg').src='hype/'+file;
+  $('hypeModal').classList.remove('hide');
 }
 
 /* "immediately when my turn" checker — fires once per pick-slot, the moment
@@ -1031,6 +1098,8 @@ setInterval(async ()=>{
 
 /* ===== Join screen ===== */
 const $=id=>document.getElementById(id);
+$('hypeClose').onclick=()=>$('hypeModal').classList.add('hide');
+$('hypeModal').onclick=e=>{ if(e.target.id==='hypeModal') $('hypeModal').classList.add('hide'); };
 const jTeam=$('jTeam');
 TEAMS.forEach(t=>{ const o=document.createElement('option');
   o.value=t.id; o.textContent=`${t.name} — ${t.owner}`; jTeam.appendChild(o); });
@@ -1183,7 +1252,7 @@ function renderPick(){
     const nm=bt.dataset.pick;
     if(!confirm(`Draft ${nm}?`)) return;
     bt.disabled=true;
-    const res=await submitPick(slots[0],nm,bt.dataset.sp,bt.dataset.po,false);
+    const res=await submitPick(slots[0],nm,bt.dataset.sp,bt.dataset.po,false,actingTeam()===ME);
     if(!res.ok){ alert(res.msg); bt.disabled=false; }
     else set(R('queues/'+T+'/list'),q.filter(x=>x.p!==nm));
   };
@@ -1462,7 +1531,7 @@ $('freeGo').onclick=async()=>{
   const slots=myOpenSlots(); if(!slots.length) return;
   const nm=($('freeName').value||'').trim(); if(!nm) return;
   if(!confirm(`Draft ${nm}?`)) return;
-  const r=await submitPick(slots[0],nm,$('freeSport').value,$('freePos').value.trim(),false);
+  const r=await submitPick(slots[0],nm,$('freeSport').value,$('freePos').value.trim(),false,actingTeam()===ME);
   if(!r.ok) alert(r.msg);
   else { $('freeName').value=''; $('freePos').value=''; }
 };
@@ -1632,7 +1701,7 @@ function paintPlayers(){
       const nm=b.dataset.pick;
       if(!confirm(`Draft ${nm}?`)) return;
       b.disabled=true;
-      const res=await submitPick(slots[0],nm,b.dataset.sp,b.dataset.po,false);
+      const res=await submitPick(slots[0],nm,b.dataset.sp,b.dataset.po,false,actingTeam()===ME);
       if(!res.ok){ alert(res.msg); b.disabled=false; }
     }
   };
@@ -1986,6 +2055,10 @@ $('aSchedSave').onclick=async()=>{
   SCHED=null; paintSched();
 };
 $('aSchedOn').onchange=e=>update(R('state'),{schedOn:e.target.checked});
+$('aHypeOn').onchange=e=>{
+  update(R('state'),{hypeOn:e.target.checked});
+  pushLog('Post-pick hype photo turned '+(e.target.checked?'ON':'OFF')+' by admin');
+};
 
 /* ---- Google Sheet backup ---- */
 $('aHookSave').onclick=async()=>{
@@ -2138,6 +2211,7 @@ function paintAll(){
     $('aState').textContent=`Status: ${S.status} · on pick #${S.cur+1} of ${TOTAL} · clock ${effectiveTimer()}m`+
       (S.schedOn?' (from schedule)':'')+(S.extraMs?` (+${Math.round(S.extraMs/60000)}m)`:'');
     $('aSchedOn').checked=!!S.schedOn;
+    $('aHypeOn').checked=S.hypeOn!==false;
     if(document.activeElement!==$('aHook')) $('aHook').value=S.sheetHook||'';
     if(!SCHED) paintSched();
     paintKeepers();
