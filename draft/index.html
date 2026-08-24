@@ -610,6 +610,13 @@ td.empty{color:#3d4a5f}
         <span class="sm muted">Or just put that pick on the clock right now (clears any skip on it, no pick made):</span>
         <button class="btn sm warn" id="aSlotClock">Put on the clock</button>
       </div>
+      <div class="arow" style="margin-top:10px;border-top:1px solid var(--line);padding-top:9px">
+        <span class="sm muted">Fix a pick that's already been made (wrong player entered, duplicate, etc.):</span>
+        <select id="aFixSlot" style="width:280px"></select>
+        <input id="aFixPlayer" type="text" placeholder="Corrected player name" style="width:190px" list="aFixSuggest">
+        <datalist id="aFixSuggest"></datalist>
+        <button class="btn sm warn" id="aFixGo">Fix</button>
+      </div>
     </div>
 <div class="sec">
       <h3>Trade picks</h3>
@@ -1146,11 +1153,56 @@ async function advance(fromIdx,reason,wasSkip){
   if(reason) pushLog(reason);
 }
 
+// Firebase RTDB keys can't contain . # $ [ ] or /  — sanitize a player name
+// into a safe, reasonably-unique key for the takenPlayers claim index.
+const keyify = s => s.trim().toLowerCase().replace(/[.#$\[\]\/]/g,'_');
+
+// One-time-per-load safety net, run for EVERY sign-in (not just admin): if
+// takenPlayers is missing a claim for a player who's actually in PICKS —
+// e.g. every pick made before this system shipped — fill it in. Never
+// overwrites an existing claim, so it's harmless to run repeatedly. Runs for
+// everyone (not just admin) so the very first person to load the page after
+// this deploys closes the gap immediately, rather than waiting for an admin
+// to happen to sign in — until backfilled, the new dup-check can't yet see
+// pre-existing picks and a same-name double-draft could theoretically slip
+// through in that narrow window.
+async function backfillTakenPlayers(){
+  try{
+    const [picksSnap,claimsSnap]=await Promise.all([get(R('picks')),get(R('takenPlayers'))]);
+    const picks=picksSnap.val()||{}, claims=claimsSnap.val()||{};
+    const patch={};
+    Object.entries(picks).forEach(([idx,p])=>{
+      if(!p||!p.p) return;
+      const key=keyify(p.p);
+      if(!claims[key]) patch[key]={p:p.p,idx:+idx,at:p.at||Date.now()};
+    });
+    if(Object.keys(patch).length) await update(R('takenPlayers'),patch);
+  }catch(e){ console.warn('takenPlayers backfill skipped',e); }
+}
+
 async function submitPick(idx,player,sport,pos,byAuto,selfPick){
+  // Atomically CLAIM the player name before doing anything else. This is
+  // the fix for the 2026-08-24 bug where Trey McBride got drafted into two
+  // different slots at once: the old dup-check compared against the local
+  // `PICKS` cache, which two near-simultaneous submitPick() calls (e.g. an
+  // admin drafting for one team while another team's autopick fires) could
+  // both read BEFORE either write had round-tripped back — so neither saw
+  // the other as taken, and both writes succeeded. A transaction against a
+  // dedicated claim node can't race like that: Firebase resolves concurrent
+  // transactions on the same path one at a time, so only one claim can ever
+  // win for a given player.
+  const key=keyify(player);
+  const claim=await runTransaction(R('takenPlayers/'+key),cur=>{
+    if(cur) return;         // already claimed — abort transaction, no change
+    return {p:player,idx,at:Date.now()};
+  });
+  if(!claim.committed) return {ok:false,msg:player+' has already been drafted.'};
+
   const snap=await get(R('picks/'+idx));
-  if(snap.exists()) return {ok:false,msg:'That pick was already made.'};
-  const dup=Object.values(PICKS).some(x=>x.p.toLowerCase()===player.toLowerCase());
-  if(dup) return {ok:false,msg:player+' has already been drafted.'};
+  if(snap.exists()){
+    await set(R('takenPlayers/'+key),null);   // roll back the claim — this slot failed for a different reason
+    return {ok:false,msg:'That pick was already made.'};
+  }
   const tid=ownerOf(idx);
   const rec={p:player,sport:sport||'',pos:pos||'',
     team:tid,at:Date.now(),auto:!!byAuto};
@@ -1254,6 +1306,7 @@ function enter(){
   paintWho();
   loadPool(); paintAll(); flushQueue();
   startPresence();
+  backfillTakenPlayers();
 }
 /* auto-enter is deliberately at the BOTTOM of this file — see note there */
 
@@ -2448,6 +2501,7 @@ $('aUndo').onclick=async()=>{
   if(!ks.length) return;
   const last=ks[0];
   if(!confirm(`Undo pick #${last+1} (${PICKS[last].p})?`)) return;
+  await set(R('takenPlayers/'+keyify(PICKS[last].p)),null);   // free the name back up
   await set(R('picks/'+last),null);
   await update(R('state'),{cur:last,startedAt:Date.now(),extraMs:0,status:'live'});
   pushLog(`Admin undid pick #${last+1}`); };
@@ -2555,6 +2609,53 @@ function paintActing(){
     : '<option value="">No open picks</option>';
   if(open.map(String).includes(keep)) sel.value=keep;
 }
+/* "Fix a made pick" — for correcting a wrong/duplicate player entry on a
+   pick that's already been recorded (as opposed to aSlotGo, which only fills
+   OPEN picks). Swaps the player atomically: releases the old name's claim,
+   claims the new name (fails if the new name is already taken elsewhere),
+   updates the pick record, and re-mirrors to the Sheet. */
+function paintFixSlot(){
+  const sel=$('aFixSlot'); if(!sel) return;
+  const keep=sel.value;
+  const made=Object.keys(PICKS).map(Number).sort((a,b)=>a-b);
+  sel.innerHTML = made.length
+    ? made.map(i=>`<option value="${i}">#${i+1} · Rd ${roundOf(i)} · ${esc(team(ownerOf(i)).name)} — currently ${esc(PICKS[i].p)}</option>`).join('')
+    : '<option value="">No picks made yet</option>';
+  if(made.map(String).includes(keep)) sel.value=keep;
+}
+$('aFixPlayer').addEventListener('input',()=>{
+  const q=$('aFixPlayer').value.toLowerCase().trim();
+  const dl=$('aFixSuggest');
+  if(q.length<2||!POOL.length){ dl.innerHTML=''; return; }
+  const gone=taken();
+  dl.innerHTML=POOL.filter(p=>!gone.has(p.p.toLowerCase())&&p.p.toLowerCase().includes(q))
+    .slice(0,20).map(p=>`<option value="${esc(p.p)}">${p.sport} ${esc(p.pos||'')}</option>`).join('');
+});
+$('aFixGo').onclick=async()=>{
+  const idx=parseInt($('aFixSlot').value,10);
+  const newName=$('aFixPlayer').value.trim();
+  if(isNaN(idx)||!newName) return;
+  const old=PICKS[idx];
+  if(!old){ alert('That pick is no longer on record — refresh and try again.'); return; }
+  if(old.p.toLowerCase()===newName.toLowerCase()){ alert('That\'s already who\'s on this pick.'); return; }
+  if(!confirm(`Change #${idx+1} (${team(ownerOf(idx)).name}) from "${old.p}" to "${newName}"?`)) return;
+
+  const oldKey=keyify(old.p), newKey=keyify(newName);
+  const claim=await runTransaction(R('takenPlayers/'+newKey),cur=>{
+    if(cur) return;   // new name already claimed by a different pick — abort
+    return {p:newName,idx,at:Date.now()};
+  });
+  if(!claim.committed){ alert(newName+' has already been drafted somewhere else — pick a different name.'); return; }
+
+  const hit=POOL.find(p=>p.p.toLowerCase()===newName.toLowerCase());
+  const rec={...old,p:newName,sport:hit?hit.sport:'',pos:hit?hit.pos:''};
+  await set(R('picks/'+idx),rec);
+  await set(R('takenPlayers/'+oldKey),null);   // free up the old name
+  pushLog(`Admin fixed #${idx+1} (${team(ownerOf(idx)).name}): "${old.p}" → "${newName}"`);
+  mirror([pickPayload(idx,rec)]);
+  $('aFixPlayer').value='';
+  alert('Fixed.');
+};
 $('aSlotPlayer').addEventListener('input',()=>{
   const q=$('aSlotPlayer').value.toLowerCase().trim();
   const dl=$('aSlotSuggest');
@@ -2806,6 +2907,7 @@ $('aReset2').onclick=async()=>{
 
   $('aHookMsg').textContent='Resetting…';
   await set(R('picks'),null);
+  await set(R('takenPlayers'),null);  // player-claim index (see submitPick)
   await set(R('log'),null);
   await set(R('overrides'),null);     // admin pick reassignments
   await set(R('skips'),null);         // skip/make-up bookkeeping
@@ -2845,6 +2947,7 @@ function paintAll(){
     paintKeepers();
     paintCoAdmins();
     paintActing();
+    paintFixSlot();
     paintQuickBar();
     $('aQuietOn').checked=!!S.quietOn;
     if(document.activeElement!==$('aQuietS')) $('aQuietS').value=S.quietS;
