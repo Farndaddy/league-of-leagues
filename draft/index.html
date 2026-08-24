@@ -262,6 +262,34 @@ td.empty{color:#3d4a5f}
   td.cell{min-width:112px;max-width:112px}
 }
 
+/* ---------- Analytics ---------- */
+.anrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:4px}
+.ankpi{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:10px 12px}
+.ankpi b{display:block;font-size:20px;font-variant-numeric:tabular-nums;margin-top:2px}
+.ankpi .slbl{display:block}
+.pacetrack{height:10px;border-radius:6px;background:var(--panel2);border:1px solid var(--line);
+  position:relative;overflow:hidden;margin:10px 0 6px}
+.pacefill{height:100%;background:var(--acc);border-radius:6px 0 0 6px}
+.paceexp{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--txt);opacity:.55}
+.leadrow{display:grid;grid-template-columns:22px 1fr auto;gap:8px;align-items:center;
+  padding:5px 0;border-bottom:1px solid var(--line);font-size:13px}
+.leadrow:last-child{border-bottom:none}
+.leadrow .rk{color:var(--mut);font-size:11px}
+.leadbar{height:6px;border-radius:4px;background:var(--panel2);margin-top:3px;overflow:hidden}
+.leadbar>i{display:block;height:100%;background:var(--acc)}
+.heatrow{display:grid;grid-template-columns:repeat(24,1fr);gap:2px;align-items:end;height:46px;margin-top:6px}
+.heatrow div{background:var(--acc);border-radius:2px 2px 0 0;min-height:2px;opacity:.85}
+.heatlbl{display:grid;grid-template-columns:repeat(24,1fr);gap:2px;font-size:8px;color:var(--mut);
+  text-align:center;margin-top:2px}
+.sportrow{display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:6px}
+.sportrow .sportbar{flex:1;height:8px;border-radius:5px;background:var(--panel2);overflow:hidden}
+.sportrow .sportbar>i{display:block;height:100%}
+.rtable{width:100%;font-size:12px;border-collapse:collapse}
+.rtable th{text-align:left;color:var(--mut);font-weight:600;font-size:11px;padding:4px 6px;
+  border-bottom:1px solid var(--line)}
+.rtable td{padding:4px 6px;border-bottom:1px solid var(--line)}
+.anempty{color:var(--mut);font-size:13px;padding:6px 0}
+
 /* ---------- Post-pick hype photo ---------- */
 .hype-overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:999;
   display:flex;align-items:center;justify-content:center;padding:20px}
@@ -313,6 +341,7 @@ td.empty{color:#3d4a5f}
   <nav>
     <button class="tab on" data-v="pick">My Team</button>
     <button class="tab" data-v="board">Draft Board</button>
+    <button class="tab" data-v="analytics">Analytics</button>
     <button class="tab" data-v="players">Players</button>
     <button class="tab" data-v="queue">My Queue</button>
     <button class="tab hide" data-v="admin" id="tabAdmin">Admin</button>
@@ -453,6 +482,11 @@ td.empty{color:#3d4a5f}
       <span>→ ← = snake direction</span>
     </div>
     <div class="boardwrap" id="bWrap"></div>
+  </section>
+
+  <!-- ANALYTICS -->
+  <section id="v-analytics" class="hide">
+    <div id="anBody"></div>
   </section>
 
   <!-- QUEUE -->
@@ -1225,11 +1259,12 @@ function enter(){
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
   b.classList.add('on');
-  ['pick','players','board','queue','admin'].forEach(v=>
+  ['pick','players','board','analytics','queue','admin'].forEach(v=>
     $('v-'+v).classList.toggle('hide',v!==b.dataset.v));
   if(b.dataset.v==='players') paintPlayers();
   if(b.dataset.v==='board') paintBoard();
   if(b.dataset.v==='queue') paintQueue();
+  if(b.dataset.v==='analytics') renderAnalytics();
 });
 
 /* ===== Clock tick ===== */
@@ -1446,6 +1481,236 @@ $('bSport').onclick=e=>{ const b=e.target.closest('.sbtn'); if(!b) return;
   bSport=b.dataset.s;
   $('bSport').querySelectorAll('.sbtn').forEach(x=>x.classList.toggle('on',x===b));
   paintBoard(); };
+
+/* ===== ANALYTICS =====
+   Everything here is read-only — computed from data already flowing through
+   the app (PICKS, LOG, QUEUES, TEAMS). No new Firebase writes, so this is
+   safe to load/refresh anytime, including mid-draft. The one modeling
+   assumption baked in: the "4-day pace" target is rolling — 4 days from
+   the timestamp of pick #1 — rather than a fixed calendar deadline. */
+const DRAFT_TARGET_MS = 4*24*60*60*1000;
+
+function fmtDur(ms){
+  if(ms==null||!isFinite(ms)) return '—';
+  const neg=ms<0; if(neg) ms=-ms;
+  const mins=Math.round(ms/60000);
+  const d=Math.floor(mins/1440), h=Math.floor((mins%1440)/60), m=mins%60;
+  const parts=[];
+  if(d) parts.push(d+'d');
+  if(h||d) parts.push(h+'h');
+  if(!d) parts.push(m+'m');
+  return (neg?'-':'')+parts.join(' ');
+}
+function fmtWhen(ms){
+  if(ms==null||!isFinite(ms)) return '—';
+  return new Date(ms).toLocaleString('en-US',
+    {weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+}
+
+function analyticsData(){
+  const made=Object.entries(PICKS).map(([idx,p])=>({idx:+idx,...p})).sort((a,b)=>a.at-b.at);
+  const n=made.length;
+  if(n<2) return {n};   // need at least 2 picks for any timing math
+
+  const startAt=made[0].at, now=Date.now(), elapsed=now-startAt;
+  const targetFinishAt=startAt+DRAFT_TARGET_MS;
+  const expectedByNow=Math.min(TOTAL,Math.max(0,(elapsed/DRAFT_TARGET_MS)*TOTAL));
+  const paceDeltaPicks=n-expectedByNow;
+  const activeElapsed=Math.max(0,elapsed-quietMs(startAt,now));
+  const avgWallMs=elapsed/(n-1);
+  const avgActiveMs=activeElapsed/(n-1);
+
+  const deltas=[];
+  for(let i=1;i<n;i++){
+    const gap=made[i].at-made[i-1].at;
+    const active=Math.max(0,gap-quietMs(made[i-1].at,made[i].at));
+    deltas.push({to:made[i],gapMs:gap,activeMs:active});
+  }
+  const last10=deltas.slice(-10);
+  const avgRecentMs=last10.length ? last10.reduce((s,d)=>s+d.activeMs,0)/last10.length : avgActiveMs;
+  const remaining=TOTAL-n;
+  const projectedFinishAt = avgRecentMs>0 ? now+remaining*avgRecentMs : null;
+
+  const byTeam={};
+  TEAMS.forEach(t=>byTeam[t.id]={sum:0,count:0,picks:0,auto:0});
+  made.forEach(p=>{ if(byTeam[p.team]){ byTeam[p.team].picks++; if(p.auto) byTeam[p.team].auto++; } });
+  deltas.forEach(d=>{ const tid=d.to.team; if(byTeam[tid]){ byTeam[tid].sum+=d.activeMs; byTeam[tid].count++; } });
+
+  const skipCounts={};
+  LOG.forEach(x=>{ const m=/^(.+?) skipped —/.exec(x.txt||''); if(m) skipCounts[m[1]]=(skipCounts[m[1]]||0)+1; });
+
+  const sportCounts={NFL:0,NBA:0,MLB:0};
+  made.forEach(p=>{ if(sportCounts[p.sport]!==undefined) sportCounts[p.sport]++; });
+
+  const rounds=[];
+  for(let r=1;r<=ROUNDS;r++){
+    const ats=[]; let complete=true;
+    for(let i=(r-1)*12;i<r*12;i++){ const p=PICKS[i]; if(!p){ complete=false; break; } ats.push(p.at); }
+    if(complete) rounds.push({r,span:Math.max(...ats)-Math.min(...ats)});
+  }
+
+  const hourCounts=new Array(24).fill(0);
+  made.forEach(p=>hourCounts[new Date(p.at).getHours()]++);
+
+  const teamsWithQueue=TEAMS.filter(t=>QUEUES[t.id]&&Array.isArray(QUEUES[t.id].list)&&QUEUES[t.id].list.length>0).length;
+  const autoCount=made.filter(p=>p.auto).length;
+
+  let fastest=null, slowest=null;
+  deltas.forEach(d=>{
+    if(!fastest||d.activeMs<fastest.activeMs) fastest=d;
+    if(!slowest||d.activeMs>slowest.activeMs) slowest=d;
+  });
+
+  return {n,startAt,now,targetFinishAt,expectedByNow,paceDeltaPicks,avgWallMs,avgActiveMs,
+    avgRecentMs,projectedFinishAt,byTeam,skipCounts,sportCounts,rounds,hourCounts,
+    teamsWithQueue,autoCount,fastest,slowest};
+}
+
+function renderAnalytics(){
+  const host=$('anBody'); if(!host) return;
+  const d=analyticsData();
+  if(!d||d.n<2){
+    host.innerHTML=`<div class="sec"><div class="anempty">Not enough picks yet — analytics kick in after the 2nd pick.</div></div>`;
+    return;
+  }
+
+  // ---- Pacing ----
+  const pctDone=Math.min(100,(d.n/TOTAL)*100);
+  const pctExpected=Math.min(100,(d.expectedByNow/TOTAL)*100);
+  const aheadBehind = d.paceDeltaPicks>=0
+    ? `<span style="color:var(--good)">${d.paceDeltaPicks.toFixed(1)} picks ahead of pace</span>`
+    : `<span style="color:var(--bad)">${Math.abs(d.paceDeltaPicks).toFixed(1)} picks behind pace</span>`;
+  const pacingHtml=`
+    <div class="sec">
+      <h3>Pacing vs. 4-day target</h3>
+      <div class="anrow">
+        <div class="ankpi"><span class="slbl">Picks made</span><b>${d.n} / ${TOTAL}</b></div>
+        <div class="ankpi"><span class="slbl">Expected by now</span><b>${Math.round(d.expectedByNow)}</b></div>
+        <div class="ankpi"><span class="slbl">Status</span><b style="font-size:14px">${aheadBehind}</b></div>
+      </div>
+      <div class="pacetrack">
+        <div class="pacefill" style="width:${pctDone}%"></div>
+        <div class="paceexp" style="left:${pctExpected}%" title="Where the 4-day model expects you to be right now"></div>
+      </div>
+      <div class="anrow">
+        <div class="ankpi"><span class="slbl">Draft started</span><b style="font-size:13px">${fmtWhen(d.startAt)}</b></div>
+        <div class="ankpi"><span class="slbl">4-day target finish</span><b style="font-size:13px">${fmtWhen(d.targetFinishAt)}</b></div>
+        <div class="ankpi"><span class="slbl">Projected finish (current pace)</span><b style="font-size:13px">${fmtWhen(d.projectedFinishAt)}</b></div>
+      </div>
+    </div>`;
+
+  // ---- Average time per pick ----
+  const leaders=TEAMS.map(t=>({t,avg:d.byTeam[t.id].count?d.byTeam[t.id].sum/d.byTeam[t.id].count:null}))
+    .filter(x=>x.avg!=null).sort((a,b)=>a.avg-b.avg);
+  const maxAvg=leaders.length?Math.max(...leaders.map(x=>x.avg)):1;
+  const avgHtml=`
+    <div class="sec">
+      <h3>Average time per pick</h3>
+      <div class="anrow">
+        <div class="ankpi"><span class="slbl">Overall (active)</span><b>${fmtDur(d.avgActiveMs)}</b></div>
+        <div class="ankpi"><span class="slbl">Overall (wall clock)</span><b>${fmtDur(d.avgWallMs)}</b></div>
+        <div class="ankpi"><span class="slbl">Last 10 picks</span><b>${fmtDur(d.avgRecentMs)}</b></div>
+      </div>
+      <div class="sm muted" style="margin:8px 0 4px">Fastest → slowest, per team (excludes Quiet Hours)</div>
+      ${leaders.map((x,i)=>`
+        <div class="leadrow">
+          <span class="rk">${i+1}</span>
+          <div>${esc(x.t.label||x.t.name)}<div class="leadbar"><i style="width:${(x.avg/maxAvg)*100}%"></i></div></div>
+          <span>${fmtDur(x.avg)}</span>
+        </div>`).join('')}
+    </div>`;
+
+  // ---- Skip leaderboard ----
+  const skipRows=Object.entries(d.skipCounts).sort((a,b)=>b[1]-a[1]);
+  const maxSkip=skipRows.length?skipRows[0][1]:1;
+  const skipHtml=`
+    <div class="sec">
+      <h3>Skip leaderboard</h3>
+      ${skipRows.length ? skipRows.map(([nm,c],i)=>`
+        <div class="leadrow">
+          <span class="rk">${i+1}</span>
+          <div>${esc(nm)}<div class="leadbar"><i style="width:${(c/maxSkip)*100}%;background:var(--warn)"></i></div></div>
+          <span>${c}×</span>
+        </div>`).join('') : `<div class="anempty">Nobody's been skipped yet — clean sheet.</div>`}
+    </div>`;
+
+  // ---- Autopick rate ----
+  const autoPct=Math.round((d.autoCount/d.n)*100);
+  const teamAuto=TEAMS.map(t=>({t,picks:d.byTeam[t.id].picks,auto:d.byTeam[t.id].auto}))
+    .filter(x=>x.picks>0).map(x=>({...x,pct:Math.round((x.auto/x.picks)*100)}))
+    .sort((a,b)=>b.pct-a.pct);
+  const autoHtml=`
+    <div class="sec">
+      <h3>Autopick rate</h3>
+      <div class="anrow">
+        <div class="ankpi"><span class="slbl">Overall</span><b>${autoPct}% (${d.autoCount}/${d.n})</b></div>
+      </div>
+      <div class="sm muted" style="margin:8px 0 4px">Highest → lowest reliance on queue autopick</div>
+      ${teamAuto.map((x,i)=>`
+        <div class="leadrow">
+          <span class="rk">${i+1}</span>
+          <div>${esc(x.t.label||x.t.name)}<div class="leadbar"><i style="width:${x.pct}%"></i></div></div>
+          <span>${x.pct}%</span>
+        </div>`).join('')}
+    </div>`;
+
+  // ---- Sport breakdown ----
+  const sportTotal=d.sportCounts.NFL+d.sportCounts.NBA+d.sportCounts.MLB || 1;
+  const sportColor={NFL:'var(--nfl)',NBA:'var(--nba)',MLB:'var(--mlb)'};
+  const sportHtml=`
+    <div class="sec">
+      <h3>Sport breakdown so far</h3>
+      ${['NFL','NBA','MLB'].map(sp=>`
+        <div class="sportrow">
+          <span style="width:36px">${sp}</span>
+          <div class="sportbar"><i style="width:${(d.sportCounts[sp]/sportTotal)*100}%;background:${sportColor[sp]}"></i></div>
+          <span style="width:70px;text-align:right">${d.sportCounts[sp]} (${Math.round((d.sportCounts[sp]/sportTotal)*100)}%)</span>
+        </div>`).join('')}
+    </div>`;
+
+  // ---- Round-by-round pace ----
+  const roundHtml=`
+    <div class="sec">
+      <h3>Round-by-round pace</h3>
+      ${d.rounds.length ? `
+        <table class="rtable">
+          <tr><th>Round</th><th>Time to complete</th></tr>
+          ${d.rounds.map(r=>`<tr><td>Rd ${r.r}</td><td>${fmtDur(r.span)}</td></tr>`).join('')}
+        </table>` : `<div class="anempty">No round has fully wrapped yet — check back after Round 1 finishes.</div>`}
+    </div>`;
+
+  // ---- Time-of-day heatmap ----
+  const maxHour=Math.max(1,...d.hourCounts);
+  const heatHtml=`
+    <div class="sec">
+      <h3>When picks happen (by hour, local time)</h3>
+      <div class="heatrow">${d.hourCounts.map(c=>`<div style="height:${Math.max(4,(c/maxHour)*100)}%" title="${c} pick${c===1?'':'s'}"></div>`).join('')}</div>
+      <div class="heatlbl">${[0,3,6,9,12,15,18,21].map(h=>`<span style="grid-column:span 3">${h}:00</span>`).join('')}</div>
+    </div>`;
+
+  // ---- Queue adoption ----
+  const queueHtml=`
+    <div class="sec">
+      <h3>Queue adoption</h3>
+      <div class="anrow">
+        <div class="ankpi"><span class="slbl">Teams with an active queue</span><b>${d.teamsWithQueue} / ${TEAMS.length}</b></div>
+      </div>
+    </div>`;
+
+  // ---- Fastest & slowest picks ----
+  const extremeHtml=`
+    <div class="sec">
+      <h3>Fastest &amp; slowest picks</h3>
+      <div class="anrow">
+        <div class="ankpi"><span class="slbl">⚡ Fastest</span><b style="font-size:14px">${d.fastest?esc(team(d.fastest.to.team).name):'—'}</b>
+          <div class="sm muted">${d.fastest?esc(d.fastest.to.p)+' · '+fmtDur(d.fastest.activeMs):''}</div></div>
+        <div class="ankpi"><span class="slbl">🐢 Slowest</span><b style="font-size:14px">${d.slowest?esc(team(d.slowest.to.team).name):'—'}</b>
+          <div class="sm muted">${d.slowest?esc(d.slowest.to.p)+' · '+fmtDur(d.slowest.activeMs):''}</div></div>
+      </div>
+    </div>`;
+
+  host.innerHTML = pacingHtml+avgHtml+skipHtml+autoHtml+sportHtml+roundHtml+heatHtml+queueHtml+extremeHtml;
+}
 
 function resetWrap(scroll){
   const w=$('bWrap');
@@ -2426,6 +2691,7 @@ function paintAll(){
   renderPick();
   if(!$('v-players').classList.contains('hide')) paintPlayers();
   if(!$('v-board').classList.contains('hide')) paintBoard();
+  if(!$('v-analytics').classList.contains('hide')) renderAnalytics();
   if(ADMIN){
     $('aState').textContent=`Status: ${S.status} · on pick #${S.cur+1} of ${TOTAL} · clock ${effectiveTimer()}m`+
       (S.schedOn?' (from schedule)':'')+(S.extraMs?` (+${Math.round(S.extraMs/60000)}m)`:'');
