@@ -1165,13 +1165,24 @@ async function advance(fromIdx,reason,wasSkip){
   }
   let before=null;
   await runTransaction(R('state'),cur=>{
-    if(!cur||cur.cur!==fromIdx||cur.status!=='live') return;   // someone beat us
+    // Advance while LIVE *or* PAUSED. This used to require 'live', which meant
+    // any pick made while the draft was paused — a fully supported admin action
+    // ("draft straight into a pick") — recorded the pick but silently left the
+    // turn pointer parked on that same, now-filled slot. The draft then looked
+    // frozen: the clock stayed on the team that had just picked, and because
+    // the open-picks dropdown only lists slots up to maxIdx, there was no way
+    // to select the NEXT pick to recover. Found live on 2026-08-24 at #46.
+    if(!cur||cur.cur!==fromIdx) return;                        // someone beat us
+    if(cur.status!=='live'&&cur.status!=='paused') return;     // setup/done — leave alone
     before={startedAt:cur.startedAt,extraMs:cur.extraMs,timerOverrideMin:cur.timerOverrideMin};
     const maxIdx=Math.max(cur.maxIdx||0,fromIdx);
     const nx=chooseNext(fromIdx,maxIdx,wasSkip);
     cur.cur=nx.idx;
     cur.maxIdx=Math.max(maxIdx,nx.idx===TOTAL?maxIdx:nx.idx);
     cur.startedAt=Date.now(); cur.extraMs=0; cur.timerOverrideMin=null;
+    // Stay paused if we were paused, but re-stamp pausedAt so Resume's
+    // "held time" math starts the new pick's clock from full.
+    if(cur.status==='paused') cur.pausedAt=Date.now();
     if(nx.done) cur.status='done';
     return cur;
   });
@@ -1341,6 +1352,15 @@ async function checkImmediateAutoPick(){
 
 /* expiry checker — any open client can trigger it */
 setInterval(async ()=>{
+  // SELF-HEAL: if the pick we're parked on has already been filled, the turn
+  // pointer got stuck (see advance()) — move it along. Runs while paused too,
+  // so a draft can't sit frozen on a completed pick waiting for a human to
+  // notice. advance()'s transaction guards on cur.cur===fromIdx, so it's safe
+  // for every open client to attempt this; only one can win.
+  if((S.status==='live'||S.status==='paused')&&S.cur<TOTAL&&PICKS[S.cur]){
+    await advance(S.cur,null,false);
+    return;
+  }
   if(S.status!=='live') return;
   const left=msLeft();
   if(left===null||left>0) return;
@@ -2692,16 +2712,25 @@ function paintActing(){
   // open picks across the whole draft, any team
   const sel=$('aSlot'); if(!sel) return;
   const keep=sel.value;
-  const open=[];
+  // Every unfilled pick up to the frontier (current + anything skipped), PLUS
+  // the next 24 upcoming picks. The upcoming ones matter for recovery: if the
+  // turn pointer ever ends up parked on an already-filled slot, the admin has
+  // to be able to select a LATER pick and "Put on the clock" to get moving
+  // again. Before this, the list stopped at maxIdx and simply read "No open
+  // picks", leaving no way out of a stuck draft from the UI.
+  const open=[], upcoming=[];
   for(let i=0;i<TOTAL;i++){
     if(PICKS[i]) continue;
-    if(i>MAXI()) continue;                      // not reached yet
-    open.push(i);
+    if(i<=MAXI()) open.push(i);
+    else if(upcoming.length<24) upcoming.push(i);
   }
-  sel.innerHTML = open.length
-    ? open.map(i=>`<option value="${i}">#${i+1} · Rd ${roundOf(i)} · ${esc(team(ownerOf(i)).name)}${i===S.cur?' (on the clock)':' (skipped)'}</option>`).join('')
+  const label=i=>`#${i+1} · Rd ${roundOf(i)} · ${esc(team(ownerOf(i)).name)}`+
+    (i===S.cur?' (on the clock)':i<=MAXI()?' (skipped)':' (upcoming)');
+  const all=[...open,...upcoming];
+  sel.innerHTML = all.length
+    ? all.map(i=>`<option value="${i}">${label(i)}</option>`).join('')
     : '<option value="">No open picks</option>';
-  if(open.map(String).includes(keep)) sel.value=keep;
+  if(all.map(String).includes(keep)) sel.value=keep;
 }
 /* "Fix a made pick" — for correcting a wrong/duplicate player entry on a
    pick that's already been recorded (as opposed to aSlotGo, which only fills
