@@ -341,7 +341,7 @@ td.empty{color:#3d4a5f}
   <nav>
     <button class="tab on" data-v="pick">My Team</button>
     <button class="tab" data-v="board">Draft Board</button>
-    <button class="tab" data-v="analytics">Analytics</button>
+    <button class="tab hide" data-v="analytics" id="tabAnalytics">Analytics</button>
     <button class="tab" data-v="players">Players</button>
     <button class="tab" data-v="queue">My Queue</button>
     <button class="tab hide" data-v="admin" id="tabAdmin">Admin</button>
@@ -824,8 +824,9 @@ function recomputeAdmin(){
   ADMIN = MASTER || !!(ME && COADMIN[ME]);
   if(was !== ADMIN && !$('app').classList.contains('hide')){
     $('tabAdmin').classList.toggle('hide',!ADMIN);
+    $('tabAnalytics').classList.toggle('hide',!ADMIN);
     paintWho();
-    if(!ADMIN){ ACTING=null; $('v-admin').classList.add('hide'); }
+    if(!ADMIN){ ACTING=null; $('v-admin').classList.add('hide'); $('v-analytics').classList.add('hide'); }
   }
   return ADMIN;
 }
@@ -1249,6 +1250,7 @@ function enter(){
   $('app').classList.remove('hide');
   recomputeAdmin();
   $('tabAdmin').classList.toggle('hide',!ADMIN);
+  $('tabAnalytics').classList.toggle('hide',!ADMIN);
   paintWho();
   loadPool(); paintAll(); flushQueue();
   startPresence();
@@ -1483,12 +1485,59 @@ $('bSport').onclick=e=>{ const b=e.target.closest('.sbtn'); if(!b) return;
   paintBoard(); };
 
 /* ===== ANALYTICS =====
-   Everything here is read-only — computed from data already flowing through
-   the app (PICKS, LOG, QUEUES, TEAMS). No new Firebase writes, so this is
-   safe to load/refresh anytime, including mid-draft. The one modeling
-   assumption baked in: the "4-day pace" target is rolling — 4 days from
-   the timestamp of pick #1 — rather than a fixed calendar deadline. */
+   Everything here is read-only except one small config value (state.paceStartAt,
+   set via the "Model start" control below) — computed from data already
+   flowing through the app (PICKS, LOG, QUEUES, TEAMS, S.sched). Safe to
+   load/refresh anytime, including mid-draft.
+
+   Pacing is grounded in the ACTUAL configured Timer Schedule (Plan A: the
+   blocks in Admin → Clock → Timer Schedule) rather than a flat linear
+   "TOTAL picks / 4 days" rate — a handful of setup picks made the night
+   before the real 7am start were badly skewing a naive linear model (they
+   made the "elapsed" clock start ~9 hours earlier than intended, which is
+   exactly how "27 picks behind" happened when nothing was actually wrong).
+   `state.paceStartAt` is the official model start (defaults to 7:00am on
+   the day of the first real pick, but is admin-editable in the Pacing card
+   in case the real start time is ever different) — everything below is
+   simulated forward from there using the CURRENT schedule + Quiet Hours
+   settings, minute-by-minute. If the schedule's real pace can't actually
+   hit the 4-day goal, this shows that gap honestly instead of hiding it. */
 const DRAFT_TARGET_MS = 4*24*60*60*1000;
+const PACE_SIM_STEP_MS = 5*60000;      // 5-minute resolution — accurate enough, cheap to run
+const PACE_SIM_HORIZON_MS = 30*24*60*60*1000; // give up looking for a finish date past 30 days out
+
+function scheduleMinPerPickAt(d){
+  if(!S.schedOn||!Array.isArray(S.sched)||!S.sched.length) return S.timerMin||60;
+  const mins=d.getHours()*60+d.getMinutes();
+  const b=S.sched.slice().sort((a,c)=>(a.h*60+a.m)-(c.h*60+c.m));
+  let cur=b[b.length-1];
+  for(const x of b) if(mins>=x.h*60+x.m) cur=x;
+  return cur.t;
+}
+// how many picks SHOULD happen between two timestamps, honoring the real
+// schedule blocks + Quiet Hours pause (not a flat linear rate)
+function simulateExpectedPicks(fromMs,toMs){
+  if(toMs<=fromMs) return 0;
+  let picks=0;
+  for(let t=fromMs;t<toMs;t+=PACE_SIM_STEP_MS){
+    const d=new Date(t);
+    if(inQuiet(d)) continue;
+    picks += (PACE_SIM_STEP_MS/60000)/scheduleMinPerPickAt(d);
+  }
+  return picks;
+}
+// walks forward from fromMs at the current schedule's real pace until it
+// would rack up `goal` picks — i.e. "when does Plan A actually finish"
+function simulateFinishAt(fromMs,goal){
+  let picks=0,t=fromMs;
+  const cap=fromMs+PACE_SIM_HORIZON_MS;
+  while(picks<goal&&t<cap){
+    const d=new Date(t);
+    if(!inQuiet(d)) picks+=(PACE_SIM_STEP_MS/60000)/scheduleMinPerPickAt(d);
+    t+=PACE_SIM_STEP_MS;
+  }
+  return picks>=goal ? t : null;   // null = won't finish within 30 days at this pace
+}
 
 function fmtDur(ms){
   if(ms==null||!isFinite(ms)) return '—';
@@ -1506,18 +1555,37 @@ function fmtWhen(ms){
   return new Date(ms).toLocaleString('en-US',
     {weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
 }
+// formats a ms timestamp for a <input type="datetime-local"> value, in the browser's local time
+function toLocalInputVal(ms){
+  const d=new Date(ms), pad=n=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 function analyticsData(){
   const made=Object.entries(PICKS).map(([idx,p])=>({idx:+idx,...p})).sort((a,b)=>a.at-b.at);
   const n=made.length;
   if(n<2) return {n};   // need at least 2 picks for any timing math
 
-  const startAt=made[0].at, now=Date.now(), elapsed=now-startAt;
-  const targetFinishAt=startAt+DRAFT_TARGET_MS;
-  const expectedByNow=Math.min(TOTAL,Math.max(0,(elapsed/DRAFT_TARGET_MS)*TOTAL));
+  const startAt=made[0].at, now=Date.now();
+  // model start = admin-set paceStartAt if present, else default to 7:00am
+  // on the calendar day of the first real pick (matches "we start at 7am")
+  let modelStart=S.paceStartAt;
+  if(!modelStart){
+    const d0=new Date(startAt);
+    d0.setHours(7,0,0,0);
+    if(d0.getTime()>startAt) d0.setDate(d0.getDate()-1); // first pick was before 7am — use that same day's 7am
+    modelStart=d0.getTime();
+  }
+  const elapsed=Math.max(0,now-modelStart);
+  const fourDayGoalAt=modelStart+DRAFT_TARGET_MS;
+  const planAFinishAt=simulateFinishAt(modelStart,TOTAL);
+  const expectedByNow=Math.min(TOTAL,Math.max(0,simulateExpectedPicks(modelStart,now)));
   const paceDeltaPicks=n-expectedByNow;
-  const activeElapsed=Math.max(0,elapsed-quietMs(startAt,now));
-  const avgWallMs=elapsed/(n-1);
+  // mismatch flag: does Plan A's current pace actually land within ~12h of the 4-day goal?
+  const planAMismatch = planAFinishAt==null || Math.abs(planAFinishAt-fourDayGoalAt)>12*60*60*1000;
+
+  const activeElapsed=Math.max(0,(now-startAt)-quietMs(startAt,now));
+  const avgWallMs=(now-startAt)/(n-1);
   const avgActiveMs=activeElapsed/(n-1);
 
   const deltas=[];
@@ -1561,7 +1629,8 @@ function analyticsData(){
     if(!slowest||d.activeMs>slowest.activeMs) slowest=d;
   });
 
-  return {n,startAt,now,targetFinishAt,expectedByNow,paceDeltaPicks,avgWallMs,avgActiveMs,
+  return {n,startAt,now,modelStart,fourDayGoalAt,planAFinishAt,planAMismatch,
+    expectedByNow,paceDeltaPicks,avgWallMs,avgActiveMs,
     avgRecentMs,projectedFinishAt,byTeam,skipCounts,sportCounts,rounds,hourCounts,
     teamsWithQueue,autoCount,fastest,slowest};
 }
@@ -1578,24 +1647,41 @@ function renderAnalytics(){
   const pctDone=Math.min(100,(d.n/TOTAL)*100);
   const pctExpected=Math.min(100,(d.expectedByNow/TOTAL)*100);
   const aheadBehind = d.paceDeltaPicks>=0
-    ? `<span style="color:var(--good)">${d.paceDeltaPicks.toFixed(1)} picks ahead of pace</span>`
-    : `<span style="color:var(--bad)">${Math.abs(d.paceDeltaPicks).toFixed(1)} picks behind pace</span>`;
+    ? `<span style="color:var(--good)">${d.paceDeltaPicks.toFixed(1)} picks ahead of Schedule A</span>`
+    : `<span style="color:var(--bad)">${Math.abs(d.paceDeltaPicks).toFixed(1)} picks behind Schedule A</span>`;
+  const mismatchHtml = d.planAMismatch ? `
+      <div class="anrow" style="margin-top:2px">
+        <div class="ankpi" style="background:rgba(245,158,11,.12);border-color:var(--warn);grid-column:1/-1">
+          <span class="slbl" style="color:var(--warn)">⚠ Heads up</span>
+          <span style="font-size:12.5px">Schedule A's current pick times ${d.planAFinishAt
+            ? `actually finish around <b>${fmtWhen(d.planAFinishAt)}</b>`
+            : `won't finish within 30 days`} — not the 4-day goal (${fmtWhen(d.fourDayGoalAt)}).
+            Shorten the block times in Admin → Clock → Timer Schedule if you want to hit 4 days.</span>
+        </div>
+      </div>` : '';
   const pacingHtml=`
     <div class="sec">
-      <h3>Pacing vs. 4-day target</h3>
+      <h3>Pacing vs. Schedule A</h3>
       <div class="anrow">
         <div class="ankpi"><span class="slbl">Picks made</span><b>${d.n} / ${TOTAL}</b></div>
-        <div class="ankpi"><span class="slbl">Expected by now</span><b>${Math.round(d.expectedByNow)}</b></div>
+        <div class="ankpi"><span class="slbl">Expected by now (Schedule A)</span><b>${Math.round(d.expectedByNow)}</b></div>
         <div class="ankpi"><span class="slbl">Status</span><b style="font-size:14px">${aheadBehind}</b></div>
       </div>
       <div class="pacetrack">
         <div class="pacefill" style="width:${pctDone}%"></div>
-        <div class="paceexp" style="left:${pctExpected}%" title="Where the 4-day model expects you to be right now"></div>
+        <div class="paceexp" style="left:${pctExpected}%" title="Where Schedule A expects you to be right now"></div>
       </div>
-      <div class="anrow">
-        <div class="ankpi"><span class="slbl">Draft started</span><b style="font-size:13px">${fmtWhen(d.startAt)}</b></div>
-        <div class="ankpi"><span class="slbl">4-day target finish</span><b style="font-size:13px">${fmtWhen(d.targetFinishAt)}</b></div>
-        <div class="ankpi"><span class="slbl">Projected finish (current pace)</span><b style="font-size:13px">${fmtWhen(d.projectedFinishAt)}</b></div>
+      ${mismatchHtml}
+      <div class="anrow" style="margin-top:8px">
+        <div class="ankpi"><span class="slbl">4-day goal finish</span><b style="font-size:13px">${fmtWhen(d.fourDayGoalAt)}</b></div>
+        <div class="ankpi"><span class="slbl">Schedule A-implied finish</span><b style="font-size:13px">${d.planAFinishAt?fmtWhen(d.planAFinishAt):'30+ days out'}</b></div>
+        <div class="ankpi"><span class="slbl">Projected finish (actual recent pace)</span><b style="font-size:13px">${fmtWhen(d.projectedFinishAt)}</b></div>
+      </div>
+      <div class="arow" style="margin-top:10px;border-top:1px solid var(--line);padding-top:9px">
+        <span class="sm muted">Model start (when the "official" Schedule A clock begins):</span>
+        <input type="datetime-local" id="anModelStart" value="${toLocalInputVal(d.modelStart)}" style="width:auto">
+        <button class="btn sm gray" id="anModelSave">Save</button>
+        <span class="sm muted">First real pick was ${fmtWhen(d.startAt)}</span>
       </div>
     </div>`;
 
@@ -1710,6 +1796,15 @@ function renderAnalytics(){
     </div>`;
 
   host.innerHTML = pacingHtml+avgHtml+skipHtml+autoHtml+sportHtml+roundHtml+heatHtml+queueHtml+extremeHtml;
+
+  const saveBtn=$('anModelSave');
+  if(saveBtn) saveBtn.onclick=async()=>{
+    const v=$('anModelStart').value; if(!v) return;
+    const ms=new Date(v).getTime(); if(isNaN(ms)) return;
+    await update(R('state'),{paceStartAt:ms});
+    pushLog(`Admin set the Analytics model start to ${fmtWhen(ms)}`);
+    renderAnalytics();
+  };
 }
 
 function resetWrap(scroll){
