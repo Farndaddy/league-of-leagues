@@ -32,6 +32,7 @@ select:focus,input:focus{border-color:var(--acc)}
 .btn{width:100%;padding:13px;background:var(--acc);color:#fff;border-radius:9px;
   font-weight:700;margin-top:14px}
 .btn:active{opacity:.85}
+.btn:disabled{opacity:.4;cursor:not-allowed}
 .btn.sm{width:auto;padding:8px 14px;font-size:13px;margin:0}
 .btn.gray{background:var(--panel2);border:1px solid var(--line);color:var(--txt)}
 .btn.green{background:var(--good)} .btn.red{background:var(--bad)}
@@ -507,6 +508,7 @@ td.empty{color:#3d4a5f}
         <button class="btn sm gray" id="aResume">Resume</button>
         <button class="btn sm gray" id="aUndo">Undo last pick</button>
         <button class="btn sm gray" id="aSkip">Skip current</button>
+        <button class="btn sm gray" id="aUndoSkip">Undo skip</button>
       </div>
       <div class="sm muted" id="aState"></div>
     </div>
@@ -805,6 +807,7 @@ let QUEUES= {};      // teamId -> {auto:bool,list:[{p,sport,pos}]}
 let KEEPERS={};      // teamId -> [{p,sport,pos}]
 let LOG   = [];
 let SKIPS = {};      // pickIndex -> {n:timesSkipped, ready:maxIdx it becomes eligible again}
+let LASTSKIP = null;  // one-level undo buffer for the most recent skip, see advance()
 let SLOTASSIGN = {}; // teamId -> sport -> slotIndex -> playerName (manual lineup choices)
 let HYPE_SEEN = {};  // teamId -> {photoId:true, ...} — which hype photos that team has already been shown
 // Post-pick hype photo rotation. To add more later, just append another
@@ -933,6 +936,7 @@ onValue(R('keepers'), s=>{ KEEPERS=s.val()||{}; paintAll(); paintKeepers(); sync
 onValue(R('coadmins'), s=>{ COADMIN=s.val()||{}; recomputeAdmin(); paintAll(); paintCoAdmins(); });
 onValue(R('log'), s=>{ LOG=Object.values(s.val()||{}); paintLog(); });
 onValue(R('skips'), s=>{ SKIPS=s.val()||{}; paintAll(); });
+onValue(R('lastSkip'), s=>{ LASTSKIP=s.val()||null; paintAll(); });
 onValue(R('hypeSeen'), s=>{ HYPE_SEEN=s.val()||{}; });
 onValue(R('slotAssign'), s=>{ SLOTASSIGN=s.val()||{}; paintAll(); });
 
@@ -1020,15 +1024,18 @@ function chooseNext(fromIdx,maxIdx,wasSkip){
 }
 
 async function advance(fromIdx,reason,wasSkip){
+  const prevSkip = SKIPS[fromIdx]||null;   // snapshot before we touch it, for Undo skip
   if(wasSkip){
-    const prev=(SKIPS[fromIdx]&&SKIPS[fromIdx].n)||0;
+    const prev=(prevSkip&&prevSkip.n)||0;
     const n=prev+1;
     await set(R('skips/'+fromIdx),{n,ready:MAXI()+backoff(n)});
   } else {
     if(SKIPS[fromIdx]) await set(R('skips/'+fromIdx),null);
   }
+  let before=null;
   await runTransaction(R('state'),cur=>{
     if(!cur||cur.cur!==fromIdx||cur.status!=='live') return;   // someone beat us
+    before={startedAt:cur.startedAt,extraMs:cur.extraMs,timerOverrideMin:cur.timerOverrideMin};
     const maxIdx=Math.max(cur.maxIdx||0,fromIdx);
     const nx=chooseNext(fromIdx,maxIdx,wasSkip);
     cur.cur=nx.idx;
@@ -1037,6 +1044,13 @@ async function advance(fromIdx,reason,wasSkip){
     if(nx.done) cur.status='done';
     return cur;
   });
+  // Record a one-level "Undo skip" buffer — only when a skip actually went
+  // through (the transaction didn't abort because someone else beat us to it).
+  if(wasSkip && before){
+    await set(R('lastSkip'),{idx:fromIdx,prevSkip,
+      prevStartedAt:before.startedAt||null,prevExtraMs:before.extraMs||0,
+      prevTimerOverrideMin:before.timerOverrideMin||null,at:Date.now()});
+  }
   if(reason) pushLog(reason);
 }
 
@@ -1966,6 +1980,16 @@ $('aUndo').onclick=async()=>{
   await set(R('picks/'+last),null);
   await update(R('state'),{cur:last,startedAt:Date.now(),extraMs:0,status:'live'});
   pushLog(`Admin undid pick #${last+1}`); };
+$('aUndoSkip').onclick=async()=>{
+  if(!LASTSKIP) return alert('No skip to undo.');
+  const ls=LASTSKIP;
+  if(PICKS[ls.idx]) return alert('That pick has since been made — nothing to undo.');
+  if(!confirm(`Undo the skip on #${ls.idx+1} (${team(ownerOf(ls.idx)).name}) and put them back on the clock now?`)) return;
+  await set(R('skips/'+ls.idx), ls.prevSkip||null);
+  await update(R('state'),{cur:ls.idx,startedAt:Date.now(),extraMs:0,
+    timerOverrideMin:ls.prevTimerOverrideMin||null,status:'live'});
+  await set(R('lastSkip'), null);
+  pushLog(`Admin undid skip on #${ls.idx+1} (${team(ownerOf(ls.idx)).name})`); };
 
 /* "Set" always wins over the schedule for the current pick (timerOverrideMin,
    see effectiveTimer) and restarts the clock fresh from right now, so it
@@ -2137,14 +2161,31 @@ function paintSched(){
 }
 $('aSchedAdd').onclick=()=>{ if(!SCHED)SCHED=[]; SCHED.push({h:12,m:0,t:15}); paintSched(); };
 $('aSchedPlanA').onclick=()=>{ SCHED=[{h:7,m:0,t:15},{h:18,m:0,t:3},{h:22,m:0,t:10}]; paintSched(); };
+/* Saving the schedule (or flipping it on/off) can change the clock length
+   for whoever's CURRENTLY on the clock — always restart their timer fresh
+   from right now (same as the manual "Set" button does) instead of judging
+   them against time already spent under the old duration. Without this, a
+   schedule edit that shortens the clock can retroactively put someone
+   "over time" and get them auto-skipped within seconds, with no warning. */
+function schedTimerPatch(){
+  const patch={};
+  if(S.status==='live'||S.status==='paused'){
+    patch.extraMs=0; patch.startedAt=Date.now();
+    if(S.status==='paused') patch.pausedAt=Date.now();
+  }
+  return patch;
+}
 $('aSchedSave').onclick=async()=>{
   const clean=(SCHED||[]).slice().sort((a,b)=>(a.h*60+a.m)-(b.h*60+b.m));
-  await update(R('state'),{sched:clean,schedOn:$('aSchedOn').checked});
+  await update(R('state'),{sched:clean,schedOn:$('aSchedOn').checked,...schedTimerPatch()});
   pushLog('Timer schedule saved: '+clean.map(b=>hhmm(b.h,b.m)+'→'+b.t+'m').join(', ')
     +($('aSchedOn').checked?' (on)':' (off)'));
   SCHED=null; paintSched();
 };
-$('aSchedOn').onchange=e=>update(R('state'),{schedOn:e.target.checked});
+$('aSchedOn').onchange=e=>{
+  update(R('state'),{schedOn:e.target.checked,...schedTimerPatch()});
+  pushLog('Timer schedule turned '+(e.target.checked?'ON':'OFF')+' by admin');
+};
 $('aHypeOn').onchange=e=>{
   update(R('state'),{hypeOn:e.target.checked});
   pushLog('Post-pick hype photo turned '+(e.target.checked?'ON':'OFF')+' by admin');
@@ -2302,6 +2343,8 @@ function paintAll(){
       (S.schedOn?' (from schedule)':'')+(S.extraMs?` (+${Math.round(S.extraMs/60000)}m)`:'');
     $('aSchedOn').checked=!!S.schedOn;
     $('aHypeOn').checked=S.hypeOn!==false;
+    $('aUndoSkip').disabled=!LASTSKIP;
+    $('aUndoSkip').title=LASTSKIP?`Undo skip on #${LASTSKIP.idx+1}`:'No skip to undo';
     if(document.activeElement!==$('aHook')) $('aHook').value=S.sheetHook||'';
     if(!SCHED) paintSched();
     paintKeepers();
