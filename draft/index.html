@@ -215,8 +215,11 @@ td.empty{color:#3d4a5f}
 .qrow{display:flex;align-items:center;gap:9px;padding:9px 11px;
   background:var(--panel);border:1px solid var(--line);border-radius:9px;margin-bottom:6px}
 .qrow.gone{opacity:.4}
+.qrow.dragging{opacity:.85;box-shadow:0 6px 16px rgba(0,0,0,.45);cursor:grabbing}
 .qrow .num{font-weight:800;color:var(--mut);min-width:20px}
 .qrow .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.drag-handle{cursor:grab;color:var(--mut);touch-action:none;padding:4px 6px;
+  font-size:16px;line-height:1;user-select:none;-webkit-user-select:none}
 .ic{background:var(--panel2);border:1px solid var(--line);color:var(--txt);
   border-radius:7px;padding:5px 9px;font-size:13px;font-weight:700}
 .toggle{display:flex;align-items:center;gap:11px;padding:13px;background:var(--panel);
@@ -1530,21 +1533,85 @@ function paintQueue(){
   $('qCount').textContent=`(${list.length})`;
   $('qList').innerHTML=list.length?list.map((x,i)=>{
     const g=gone.has(x.p.toLowerCase());
-    return `<div class="qrow${g?' gone':''}">
+    return `<div class="qrow${g?' gone':''}" data-idx="${i}">
+      <span class="drag-handle" data-drag="${i}" title="Drag to reorder">⠿</span>
       <span class="num">${i+1}</span>
       ${x.sport?`<span class="pill ${x.sport}">${x.sport}</span>`:''}
       <span class="nm">${esc(x.p)}${g?' — already drafted':''}</span>
-      <button class="ic" data-up="${i}">↑</button>
-      <button class="ic" data-dn="${i}">↓</button>
-      <button class="ic" data-rm="${i}">✕</button></div>`;
+      <button class="ic" data-up="${i}" title="Move up">↑</button>
+      <button class="ic" data-dn="${i}" title="Move down">↓</button>
+      <button class="ic" data-top="${i}" title="Move to top">⤒</button>
+      <button class="ic" data-rm="${i}" title="Remove">✕</button></div>`;
   }).join(''):'<div class="muted sm">Your queue is empty. Search above, or tap +Q next to any player on the Pick tab.</div>';
   $('qList').onclick=e=>{
     const l=myQueue().slice();
-    const up=e.target.dataset.up,dn=e.target.dataset.dn,rm=e.target.dataset.rm;
+    const up=e.target.dataset.up,dn=e.target.dataset.dn,top=e.target.dataset.top,rm=e.target.dataset.rm;
     if(up!==undefined){ const i=+up; if(i>0){ [l[i-1],l[i]]=[l[i],l[i-1]]; set(R('queues/'+ME+'/list'),l);} }
     else if(dn!==undefined){ const i=+dn; if(i<l.length-1){ [l[i+1],l[i]]=[l[i],l[i+1]]; set(R('queues/'+ME+'/list'),l);} }
+    else if(top!==undefined){ const i=+top; if(i>0){ const m=l.splice(i,1)[0]; l.unshift(m); set(R('queues/'+ME+'/list'),l);} }
     else if(rm!==undefined){ l.splice(+rm,1); set(R('queues/'+ME+'/list'),l); }
   };
+  wireQueueDrag();
+}
+
+/* Touch-and-mouse drag reordering for the queue, via Pointer Events (native
+   HTML5 drag-and-drop doesn't fire on phones, which is where this list is
+   mostly used). Rows are visually shifted with CSS transforms while dragging
+   — nothing is added/removed from the DOM mid-gesture — and the real reorder
+   is written to Firebase once on release. */
+function wireQueueDrag(){
+  const rows = Array.from($('qList').querySelectorAll('.qrow'));
+  if(rows.length<2) return;
+  rows.forEach(row=>{
+    const handle = row.querySelector('.drag-handle');
+    if(!handle) return;
+    handle.onpointerdown = e=>{
+      if(e.button!==undefined && e.button!==0) return;
+      e.preventDefault();
+      const startIdx = +row.dataset.idx;
+      const startY = e.clientY;
+      const pitch = row.getBoundingClientRect().height + 6;   // row height + CSS margin-bottom
+      let order = rows.map((r,i)=>i);   // order[visual position] = original index
+      let curPos = startIdx;
+      handle.setPointerCapture(e.pointerId);
+      row.classList.add('dragging');
+      row.style.zIndex='50';
+
+      const onMove = ev=>{
+        const dy = ev.clientY - startY;
+        row.style.transform = `translateY(${dy}px)`;
+        const newPos = Math.max(0, Math.min(rows.length-1, startIdx + Math.round(dy/pitch)));
+        if(newPos !== curPos){
+          const moved = order.splice(curPos,1)[0];
+          order.splice(newPos,0,moved);
+          curPos = newPos;
+          rows.forEach((r,origIdx)=>{
+            if(r===row) return;
+            const newVisualPos = order.indexOf(origIdx);
+            const shift = (newVisualPos - origIdx) * pitch;
+            r.style.transform = shift ? `translateY(${shift}px)` : '';
+          });
+        }
+      };
+      const finish = ()=>{
+        handle.removeEventListener('pointermove',onMove);
+        handle.removeEventListener('pointerup',finish);
+        handle.removeEventListener('pointercancel',finish);
+        row.classList.remove('dragging');
+        row.style.transform=''; row.style.zIndex='';
+        rows.forEach(r=>{ r.style.transform=''; });
+        if(order.some((v,i)=>v!==i)){
+          const l=myQueue().slice();
+          // the list can change mid-drag (e.g. a queued player just got drafted
+          // and syncQueues() removed him) — bail rather than write a bad reorder
+          if(l.length===rows.length) set(R('queues/'+ME+'/list'), order.map(idx=>l[idx]));
+        }
+      };
+      handle.addEventListener('pointermove',onMove);
+      handle.addEventListener('pointerup',finish);
+      handle.addEventListener('pointercancel',finish);
+    };
+  });
 }
 
 $('pGoPlayers').onclick=()=>{
