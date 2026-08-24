@@ -839,6 +839,27 @@ const taken = () => {
   Object.values(KEEPERS).forEach(list=>(list||[]).forEach(k=>s.add(k.p.toLowerCase())));
   return s;
 };
+/* Once a player is drafted (or kept), strip him out of EVERY team's queue —
+   not just the picking team's. Runs off the shared picks/keepers listeners so
+   it fires for every client the moment a pick lands, and it's idempotent
+   (safe if more than one client runs it at once). */
+let queueSyncBusy=false;
+async function syncQueues(){
+  if(queueSyncBusy) return;           // avoid overlapping runs on rapid-fire picks
+  queueSyncBusy=true;
+  try{
+    const gone=taken();
+    const patch={};
+    for(const tid of Object.keys(QUEUES)){
+      const q=QUEUES[tid];
+      if(!q||!Array.isArray(q.list)||!q.list.length) continue;
+      const filtered=q.list.filter(x=>!gone.has((x.p||'').toLowerCase()));
+      if(filtered.length!==q.list.length) patch[tid+'/list']=filtered;
+    }
+    if(Object.keys(patch).length) await update(R('queues'),patch);
+  }catch(e){ console.warn('queue sync skipped',e); }
+  finally{ queueSyncBusy=false; }
+}
 /* position lookup — from the pick itself, else the player pool */
 const POSMAP = () => { const m={}; POOL.forEach(p=>m[p.p.toLowerCase()]={pos:p.pos,sport:p.sport}); return m; };
 function posOf(name,given,pm){
@@ -902,10 +923,10 @@ onValue(R('seatOrder'), s=>{
   if(Array.isArray(v)&&v.length===12) SEAT=v.slice();
   paintAll(); paintSeatEditor();
 });
-onValue(R('picks'), s=>{ PICKS=s.val()||{}; paintAll(); checkImmediateAutoPick(); });
+onValue(R('picks'), s=>{ PICKS=s.val()||{}; paintAll(); checkImmediateAutoPick(); syncQueues(); });
 onValue(R('overrides'), s=>{ OVER=s.val()||{}; paintAll(); });
-onValue(R('queues'), s=>{ QUEUES=s.val()||{}; paintQueue(); checkImmediateAutoPick(); });
-onValue(R('keepers'), s=>{ KEEPERS=s.val()||{}; paintAll(); paintKeepers(); });
+onValue(R('queues'), s=>{ QUEUES=s.val()||{}; paintQueue(); checkImmediateAutoPick(); syncQueues(); });
+onValue(R('keepers'), s=>{ KEEPERS=s.val()||{}; paintAll(); paintKeepers(); syncQueues(); });
 onValue(R('coadmins'), s=>{ COADMIN=s.val()||{}; recomputeAdmin(); paintAll(); paintCoAdmins(); });
 onValue(R('log'), s=>{ LOG=Object.values(s.val()||{}); paintLog(); });
 onValue(R('skips'), s=>{ SKIPS=s.val()||{}; paintAll(); });
