@@ -617,6 +617,24 @@ td.empty{color:#3d4a5f}
         <datalist id="aFixSuggest"></datalist>
         <button class="btn sm warn" id="aFixGo">Fix</button>
       </div>
+      <div class="arow" style="margin-top:10px;border-top:1px solid var(--line);padding-top:9px">
+        <span class="sm muted">Free up a player the board thinks is drafted but isn't:</span>
+        <input id="aFreePlayer" type="text" placeholder="Player name" style="width:190px">
+        <button class="btn sm warn" id="aFreeGo">Release player</button>
+        <button class="btn sm gray" id="aReconcile">Re-sync all</button>
+      </div>
+      <div class="sm muted" id="aFreeMsg"></div>
+    </div>
+
+    <div class="sec">
+      <h3>Traded picks audit</h3>
+      <p class="sm muted" style="margin:0 0 10px">
+        Every pick that isn't with its original owner. Rows flagged in red have a manual
+        override that <b>disagrees</b> with the trade built into the draft board — usually a
+        trade entered twice, which cancels itself out. Clearing the override restores the
+        built-in trade.
+      </p>
+      <div id="aTradeAudit"></div>
     </div>
 <div class="sec">
       <h3>Trade picks</h3>
@@ -792,6 +810,20 @@ const TEAMS = [
 {"id":"poopshoot","name":"MoviePoopShoot","owner":"Casey & Mark","pin":"7798","label":"Poopshoot - C&M"}];
 const ADMIN_CODE = "770077";
 const ROUNDS = 32, TOTAL = ROUNDS*12;
+
+/* 2026 NFL bye weeks, by team abbreviation (matches the `tm` field already
+   in players.json). Update this each season. */
+const NFL_BYE_WEEKS = {
+  CAR:5, KC:5,
+  CIN:6, DET:6, MIA:6, MIN:6,
+  BUF:7, JAC:7, LAC:7, WAS:7,
+  HOU:8, NO:8, NYG:8, SF:8,
+  PIT:9, TEN:9,
+  CHI:10, DEN:10, PHI:10, TB:10,
+  ATL:11, CLE:11, GB:11, LAR:11, NE:11, SEA:11,
+  BAL:13, IND:13, LV:13, NYJ:13,
+  ARI:14, DAL:14,
+};
 
 /* TRD[canonical team index][round-1] = letter of the team that NOW owns
    that team's pick in that round. Trades are tied to the ORIGINAL team,
@@ -1166,18 +1198,40 @@ const keyify = s => s.trim().toLowerCase().replace(/[.#$\[\]\/]/g,'_');
 // to happen to sign in — until backfilled, the new dup-check can't yet see
 // pre-existing picks and a same-name double-draft could theoretically slip
 // through in that narrow window.
-async function backfillTakenPlayers(){
+/* TWO-WAY reconcile — `picks` is the single source of truth, `takenPlayers`
+   is only a fast lock index derived from it.
+
+   The 2026-08-24 "Jaylen Brown has already been drafted" bug happened
+   because this function only ever ADDED claims and never removed them, so
+   the two nodes could drift apart permanently. When picks were rolled back
+   (undo, or an edit made straight in the Firebase console, which never runs
+   our undo code at all), the claims for those players stayed behind forever
+   — the player was free on the board but permanently un-draftable, with no
+   way to clear it from the UI. Live data confirmed the drift: 46 claims vs
+   18 actual picks.
+
+   Now it syncs BOTH directions: adds claims for picks that have none, and
+   deletes any claim whose player isn't actually in `picks` anymore. Runs on
+   every sign-in and after every undo, so the index self-heals no matter how
+   the picks changed — including console edits we can't intercept. */
+async function reconcileTakenPlayers(){
   try{
     const [picksSnap,claimsSnap]=await Promise.all([get(R('picks')),get(R('takenPlayers'))]);
     const picks=picksSnap.val()||{}, claims=claimsSnap.val()||{};
-    const patch={};
+    const live=new Map();                       // key -> {p,idx,at} straight from picks
     Object.entries(picks).forEach(([idx,p])=>{
-      if(!p||!p.p) return;
-      const key=keyify(p.p);
-      if(!claims[key]) patch[key]={p:p.p,idx:+idx,at:p.at||Date.now()};
+      if(p&&p.p) live.set(keyify(p.p),{p:p.p,idx:+idx,at:p.at||Date.now()});
     });
-    if(Object.keys(patch).length) await update(R('takenPlayers'),patch);
-  }catch(e){ console.warn('takenPlayers backfill skipped',e); }
+    const patch={};
+    live.forEach((v,k)=>{ if(!claims[k]) patch[k]=v; });          // missing → add
+    Object.keys(claims).forEach(k=>{ if(!live.has(k)) patch[k]=null; });  // orphaned → drop
+    if(Object.keys(patch).length){
+      await update(R('takenPlayers'),patch);
+      const added=Object.values(patch).filter(Boolean).length;
+      const freed=Object.keys(patch).length-added;
+      console.log(`takenPlayers reconciled: +${added} claim(s), -${freed} stale claim(s)`);
+    }
+  }catch(e){ console.warn('takenPlayers reconcile skipped',e); }
 }
 
 async function submitPick(idx,player,sport,pos,byAuto,selfPick){
@@ -1198,15 +1252,37 @@ async function submitPick(idx,player,sport,pos,byAuto,selfPick){
   });
   if(!claim.committed) return {ok:false,msg:player+' has already been drafted.'};
 
-  const snap=await get(R('picks/'+idx));
-  if(snap.exists()){
-    await set(R('takenPlayers/'+key),null);   // roll back the claim — this slot failed for a different reason
-    return {ok:false,msg:'That pick was already made.'};
+  // AUTOPICKS ONLY: re-read the draft status straight from the server before
+  // committing. `S` is this browser's cached copy of `state`, and on 2026-08-24
+  // a client with a lagging connection still believed the draft was live and
+  // fired an autopick ~18 minutes AFTER an admin had paused it, replacing a
+  // real pick (Jaylen Brown → Jaren Jackson Jr. on #46). The local
+  // `S.status!=='live'` guards in the autopick callers can't catch that,
+  // because the stale value is exactly what they're reading.
+  if(byAuto){
+    const liveStatus=(await get(R('state/status'))).val();
+    if(liveStatus!=='live'){
+      await set(R('takenPlayers/'+key),null);
+      return {ok:false,msg:'Draft is not live — autopick cancelled.'};
+    }
   }
+
   const tid=ownerOf(idx);
   const rec={p:player,sport:sport||'',pos:pos||'',
     team:tid,at:Date.now(),auto:!!byAuto};
-  await set(R('picks/'+idx),rec);
+  // Write the pick as a TRANSACTION rather than get()-then-set(). The old
+  // check-then-write left a window where another client could land a pick in
+  // the same slot in between, and the second write would silently clobber the
+  // first — how #46 got overwritten. A transaction that aborts on a non-empty
+  // slot makes overwriting a made pick impossible, whatever else is going on.
+  const res=await runTransaction(R('picks/'+idx),cur=>{
+    if(cur) return;         // slot already filled — abort, leave it alone
+    return rec;
+  });
+  if(!res.committed){
+    await set(R('takenPlayers/'+key),null);   // roll the claim back
+    return {ok:false,msg:'That pick was already made.'};
+  }
   pushLog(`${team(tid).name} — Rd ${roundOf(idx)} (#${idx+1}) — ${player}${byAuto?' (auto)':''}`);
   mirror([pickPayload(idx,rec)]);   // fire-and-forget to the Google Sheet
   if(idx===S.cur) await advance(idx,null,false);
@@ -1251,8 +1327,15 @@ async function checkImmediateAutoPick(){
   if(!nxt) return;
   const res=await submitPick(idx,nxt.p,nxt.sport,nxt.pos,true);
   if(res.ok){
-    const rest=q.list.filter(x=>x.p!==nxt.p);
-    set(R('queues/'+tid+'/list'),rest);
+    // transaction, not a plain set() built from `q` — `q` is a snapshot from
+    // whenever QUEUES last synced on THIS client, and if the owning team was
+    // simultaneously adding players to this same queue (very normal while
+    // it's your own turn), a plain set() here would silently overwrite their
+    // fresh additions with this stale copy minus one player.
+    runTransaction(R('queues/'+tid+'/list'),cur=>{
+      if(!Array.isArray(cur)) return cur;
+      return cur.filter(x=>x.p!==nxt.p);
+    });
   }
 }
 
@@ -1271,8 +1354,10 @@ setInterval(async ()=>{
     if(nxt){
       const res=await submitPick(idx,nxt.p,nxt.sport,nxt.pos,true);
       if(res.ok){
-        const rest=q.list.filter(x=>x.p!==nxt.p);
-        set(R('queues/'+tid+'/list'),rest);
+        runTransaction(R('queues/'+tid+'/list'),cur=>{
+          if(!Array.isArray(cur)) return cur;
+          return cur.filter(x=>x.p!==nxt.p);
+        });
         return;
       }
     }
@@ -1306,7 +1391,7 @@ function enter(){
   paintWho();
   loadPool(); paintAll(); flushQueue();
   startPresence();
-  backfillTakenPlayers();
+  reconcileTakenPlayers();
 }
 /* auto-enter is deliberately at the BOTTOM of this file — see note there */
 
@@ -1449,7 +1534,10 @@ function renderPick(){
     bt.disabled=true;
     const res=await submitPick(slots[0],nm,bt.dataset.sp,bt.dataset.po,false,actingTeam()===ME);
     if(!res.ok){ alert(res.msg); bt.disabled=false; }
-    else set(R('queues/'+T+'/list'),q.filter(x=>x.p!==nm));
+    else runTransaction(R('queues/'+T+'/list'),cur=>{
+      if(!Array.isArray(cur)) return cur;
+      return cur.filter(x=>x.p!==nm);
+    });
   };
 
   paintMyRoster();
@@ -2301,7 +2389,7 @@ function paintPlayers(){
     return `<div class="prow${h?' gone':''}">
       <span class="rk">${r!==null?r:'–'}</span>
       <span class="pill ${p.sport}">${p.sport}</span>
-      <div class="nm">${esc(p.p)}<span class="meta"> · ${esc(p.pos||'')}${p.tm?' · '+esc(p.tm):''}</span></div>
+      <div class="nm">${esc(p.p)}<span class="meta"> · ${esc(p.pos||'')}${p.tm?' · '+esc(p.tm):''}${p.sport==='NFL'&&NFL_BYE_WEEKS[p.tm]?` · BYE WK ${NFL_BYE_WEEKS[p.tm]}`:''}</span></div>
       ${h?`<span class="gonetag">${h.kpr?'KPR':'Rd '+h.rd} ${esc(team(h.by).name)}</span>`
          :`${ME?`<button class="ic" data-q="${esc(p.p)}"${inQ.has(p.p)?' disabled':''}>${inQ.has(p.p)?'✓':'+Q'}</button>`:''}
             ${canDraft?`<button class="btn sm green" data-pick="${esc(p.p)}" data-sp="${p.sport}" data-po="${esc(p.pos||'')}">Draft</button>`:''}
@@ -2503,8 +2591,14 @@ $('aUndo').onclick=async()=>{
   if(!confirm(`Undo pick #${last+1} (${PICKS[last].p})?`)) return;
   await set(R('takenPlayers/'+keyify(PICKS[last].p)),null);   // free the name back up
   await set(R('picks/'+last),null);
-  await update(R('state'),{cur:last,startedAt:Date.now(),extraMs:0,status:'live'});
-  pushLog(`Admin undid pick #${last+1}`); };
+  // Undo leaves the draft PAUSED. Previously it forced status:'live', which
+  // meant the team whose pick was just undone could have an autopick fire and
+  // instantly re-fill the slot with a different player before the admin could
+  // do anything — that's how "#46 Jaylen Brown" became "#46 Jaren Jackson Jr."
+  // Resume manually once the board looks right.
+  await update(R('state'),{cur:last,startedAt:Date.now(),extraMs:0,status:'paused',pausedAt:Date.now()});
+  await reconcileTakenPlayers();   // self-heal in case earlier undos left orphans
+  pushLog(`Admin undid pick #${last+1} — draft paused`); };
 $('aUndoSkip').onclick=async()=>{
   if(!LASTSKIP) return alert('No skip to undo.');
   const ls=LASTSKIP;
@@ -2656,6 +2750,74 @@ $('aFixGo').onclick=async()=>{
   $('aFixPlayer').value='';
   alert('Fixed.');
 };
+/* Manually release a stuck player claim. Safety-checked: refuses if the
+   player really IS in a made pick, so it can't be used to accidentally
+   double-draft someone. For genuinely orphaned claims only. */
+$('aFreeGo').onclick=async()=>{
+  const nm=$('aFreePlayer').value.trim();
+  if(!nm) return;
+  const key=keyify(nm);
+  const claim=(await get(R('takenPlayers/'+key))).val();
+  if(!claim){ $('aFreeMsg').textContent=`"${nm}" isn't claimed — he's already free to draft.`; return; }
+  const realPick=Object.entries(PICKS).find(([i,p])=>p&&keyify(p.p)===key);
+  if(realPick){
+    $('aFreeMsg').textContent=`Can't release — ${nm} is genuinely drafted at #${+realPick[0]+1} (${team(realPick[1].team).name}). Undo or fix that pick instead.`;
+    return;
+  }
+  if(!confirm(`Release "${nm}" back into the player pool? He has a leftover claim but no actual pick.`)) return;
+  await set(R('takenPlayers/'+key),null);
+  pushLog(`Admin released stuck player claim: ${nm}`);
+  $('aFreePlayer').value='';
+  $('aFreeMsg').textContent=`Released "${nm}" — he can be drafted again.`;
+};
+$('aReconcile').onclick=async()=>{
+  await reconcileTakenPlayers();
+  $('aFreeMsg').textContent='Re-synced the drafted-player list against the actual picks.';
+};
+
+/* Traded-picks audit — surfaces the one thing that was previously invisible:
+   a manual override that CONTRADICTS the trade baked into the TRD board.
+   On 2026-08-24 trade #70 (KingFish Rd23 <-> Dawg Pound Rd13) was entered a
+   second time via Swap owners; because the swap tool reads whoever owns the
+   pick RIGHT NOW, re-entering an already-applied trade swaps it straight
+   back, silently undoing it. Nothing in the UI showed this, which is why it
+   went unnoticed for a day. Now it's a red row with a one-click fix. */
+function paintTradeAudit(){
+  const host=$('aTradeAudit'); if(!host) return;
+  const rows=[];
+  for(let i=0;i<TOTAL;i++){
+    const orig=origOwner(i), base=baseOwner(i), ov=OVER[i]||null, fin=ownerOf(i);
+    if(fin===orig && !ov) continue;                 // untouched, skip
+    // Flag only the specific double-entry signature: the board had traded this
+    // pick AWAY from its original owner, but a manual override hands it right
+    // back to that same original owner — i.e. the trade got entered twice and
+    // cancelled itself out. A plain override that differs from the board trade
+    // is just a normal admin trade and is NOT flagged.
+    const conflict = !!ov && base!==orig && ov===orig;
+    rows.push({i,orig,base,ov,fin,conflict});
+  }
+  if(!rows.length){ host.innerHTML='<div class="sm muted">No traded picks.</div>'; return; }
+  const bad=rows.filter(r=>r.conflict).length;
+  host.innerHTML=
+    (bad?`<div class="sm" style="color:var(--bad);font-weight:700;margin-bottom:8px">⚠ ${bad} pick${bad>1?'s':''} where an override sends the pick back to its original owner, cancelling a trade the board already had. Verify each one is intentional.</div>`:'')+
+    `<table class="rtable"><tr><th>Pick</th><th>Rd</th><th>Originally</th><th>Board trade</th><th>Override</th><th>Owner now</th><th></th></tr>`+
+    rows.map(r=>`<tr${r.conflict?' style="background:rgba(239,68,68,.12)"':''}>
+      <td>#${r.i+1}</td><td>${roundOf(r.i)}</td>
+      <td>${esc(team(r.orig).name)}</td>
+      <td>${esc(team(r.base).name)}</td>
+      <td>${r.ov?esc(team(r.ov).name):'—'}</td>
+      <td><b>${esc(team(r.fin).name)}</b></td>
+      <td>${r.ov?`<button class="btn sm gray" data-clr="${r.i}">Clear override</button>`:''}</td>
+    </tr>`).join('')+`</table>`;
+  host.onclick=async e=>{
+    const b=e.target.closest('[data-clr]'); if(!b) return;
+    const i=+b.dataset.clr;
+    if(!confirm(`Clear the manual override on pick #${i+1}?\n\nIt will go back to ${team(baseOwner(i)).name} (the owner from the draft board's built-in trades).`)) return;
+    await set(R('overrides/'+i),null);
+    if(PICKS[i]) await set(R('picks/'+i+'/team'),baseOwner(i));
+    pushLog(`Admin cleared the override on pick #${i+1} → ${team(baseOwner(i)).name}`);
+  };
+}
 $('aSlotPlayer').addEventListener('input',()=>{
   const q=$('aSlotPlayer').value.toLowerCase().trim();
   const dl=$('aSlotSuggest');
@@ -2948,6 +3110,7 @@ function paintAll(){
     paintCoAdmins();
     paintActing();
     paintFixSlot();
+    paintTradeAudit();
     paintQuickBar();
     $('aQuietOn').checked=!!S.quietOn;
     if(document.activeElement!==$('aQuietS')) $('aQuietS').value=S.quietS;
