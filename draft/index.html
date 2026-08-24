@@ -561,6 +561,10 @@ td.empty{color:#3d4a5f}
         <datalist id="aSlotSuggest"></datalist>
         <button class="btn sm green" id="aSlotGo">Draft</button>
       </div>
+      <div class="arow" style="margin-top:6px">
+        <span class="sm muted">Or just put that pick on the clock right now (clears any skip on it, no pick made):</span>
+        <button class="btn sm warn" id="aSlotClock">Put on the clock</button>
+      </div>
     </div>
 <div class="sec">
       <h3>Trade picks</h3>
@@ -2101,6 +2105,20 @@ $('aSlotGo').onclick=async()=>{
   const r=await submitPick(idx,nm,hit?hit.sport:'',hit?hit.pos:'',false);
   if(!r.ok) alert(r.msg);
   else { $('aSlotPlayer').value=''; pushLog(`Admin drafted ${nm} for ${team(ownerOf(idx)).name} (#${idx+1})`); }
+};
+/* Puts a specific open pick on the clock right now, running, as if it were
+   never skipped — no pick is made, just cur/timer/skip state reset. Covers
+   any skip that predates the lastSkip snapshot (see advance()/Undo skip),
+   or any other case where the current turn just needs to be forced back to
+   a specific pick. */
+$('aSlotClock').onclick=async()=>{
+  const idx=parseInt($('aSlot').value,10);
+  if(isNaN(idx)) return;
+  const nm=team(ownerOf(idx)).name;
+  if(!confirm(`Put ${nm} on the clock now for pick #${idx+1}? This clears any skip on that pick and starts a fresh timer. No pick is made.`)) return;
+  if(SKIPS[idx]) await set(R('skips/'+idx),null);
+  await update(R('state'),{cur:idx,startedAt:Date.now(),extraMs:0,timerOverrideMin:null,status:'live'});
+  pushLog(`Admin put ${nm} back on the clock for #${idx+1} (skip cleared)`);
 };
 
 /* ---- co-admins ---- */
