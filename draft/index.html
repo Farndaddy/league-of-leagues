@@ -660,7 +660,8 @@ td.empty{color:#3d4a5f}
         had and gain the new one, so their owner can slot them either way.
       </p>
       <div class="arow">
-        <select id="aPosPlayer" style="width:290px"></select>
+        <input id="aPosPlayer" type="text" placeholder="Type a player name" style="width:250px" list="aPosSuggest" autocomplete="off">
+        <datalist id="aPosSuggest"></datalist>
         <select id="aPosAdd" style="width:140px"></select>
         <button class="btn sm" id="aPosGo">Add position</button>
       </div>
@@ -2913,24 +2914,36 @@ function posEligRows(){
   TEAMS.forEach(t=>rosterOf(t.id,pm).forEach(r=>rows.push({...r,tm:t})));
   return rows.sort((a,b)=>a.p.localeCompare(b.p));
 }
+/* resolve the typed name to a drafted player, case-insensitively */
+function posEligFind(rows){
+  const v=($('aPosPlayer').value||'').trim().toLowerCase();
+  if(!v) return null;
+  return (rows||posEligRows()).find(x=>x.p.toLowerCase()===v)||null;
+}
 function syncPosAdd(rows){
-  const sel=$('aPosPlayer'), add=$('aPosAdd');
-  if(!sel||!add) return;
-  const r=(rows||posEligRows()).find(x=>x.p===sel.value);
+  const add=$('aPosAdd'); if(!add) return;
+  const r=posEligFind(rows);
   const list=POS_BY_SPORT[r&&r.sport]||
     [...new Set([].concat(...Object.values(POS_BY_SPORT)))];
   const keep=add.value;
   add.innerHTML=list.map(p=>`<option value="${p}">${p}</option>`).join('');
   if(list.includes(keep)) add.value=keep;
+  const msg=$('aPosMsg');
+  if(msg&&!msg.dataset.sticky){
+    const typed=($('aPosPlayer').value||'').trim();
+    msg.textContent = !typed ? ''
+      : r ? `${r.p} — ${r.tm.name}${r.pos?' · currently '+r.pos:''}`
+          : `"${typed}" isn't a drafted player — pick one from the list.`;
+  }
 }
 function paintPosElig(){
   const sel=$('aPosPlayer'); if(!sel) return;
   const rows=posEligRows();
-  const keep=sel.value;
-  sel.innerHTML = rows.length
-    ? rows.map(r=>`<option value="${esc(r.p)}">${esc(r.p)} — ${esc(r.tm.name)}${r.pos?' ('+esc(r.pos)+')':''}</option>`).join('')
-    : '<option value="">No drafted players yet</option>';
-  if(rows.some(r=>r.p===keep)) sel.value=keep;
+  // Populate the type-ahead list. Never touches the input's value, so this is
+  // safe to re-run on every paint while she's mid-typing.
+  const dl=$('aPosSuggest');
+  if(dl) dl.innerHTML=rows.map(r=>
+    `<option value="${esc(r.p)}">${esc(r.tm.name)}${r.pos?' · '+esc(r.pos):''}</option>`).join('');
   syncPosAdd(rows);
 
   const host=$('aPosList'); if(!host) return;
@@ -2949,12 +2962,21 @@ function paintPosElig(){
     pushLog(`Admin removed added position from ${v.p||k}`);
   };
 }
-$('aPosPlayer').onchange=()=>syncPosAdd();
+$('aPosPlayer').addEventListener('input',()=>{
+  delete $('aPosMsg').dataset.sticky;   // typing clears a previous result message
+  syncPosAdd();
+});
 $('aPosGo').onclick=async()=>{
-  const nm=$('aPosPlayer').value, add=$('aPosAdd').value;
-  if(!nm||!add) return;
-  const r=posEligRows().find(x=>x.p===nm);
-  const cur=(r&&r.pos)||'';
+  const add=$('aPosAdd').value;
+  const typed=($('aPosPlayer').value||'').trim();
+  if(!typed||!add) return;
+  const r=posEligFind();
+  if(!r){
+    $('aPosMsg').textContent=`"${typed}" isn't a drafted player — pick a name from the suggestions.`;
+    return;
+  }
+  const nm=r.p;                          // canonical spelling, not what was typed
+  const cur=r.pos||'';
   if(cur.split(',').map(s=>s.trim().toUpperCase()).includes(add)){
     $('aPosMsg').textContent=`${nm} already counts as ${add}.`; return;
   }
@@ -2965,6 +2987,8 @@ $('aPosGo').onclick=async()=>{
     .map(s=>s.trim().toUpperCase()).filter(Boolean))].join(',');
   await set(R('posExtra/'+key),{p:nm,pos:merged,at:Date.now()});
   pushLog(`Admin gave ${nm} ${add} eligibility`);
+  // sticky so the next repaint (Firebase echo) doesn't wipe the confirmation
+  $('aPosMsg').dataset.sticky='1';
   $('aPosMsg').textContent=`${nm} can now be slotted at ${add}.`;
 };
 
