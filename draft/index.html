@@ -289,7 +289,13 @@ td.empty{color:#3d4a5f}
 .leadrow{display:grid;grid-template-columns:22px 1fr auto;gap:8px;align-items:center;
   padding:5px 0;border-bottom:1px solid var(--line);font-size:13px}
 .leadrow:last-child{border-bottom:none}
-.leadrow .rk{color:var(--mut);font-size:11px}
+/* .rk carries min-width:34px for the Players list (a flex row, where that's
+   fine). Inside .leadrow it sits in a 22px grid track, so that min-width
+   overflows the track and the number prints on top of the team name. Reset it
+   here — this covers every analytics chart built from .leadrow (average time
+   per pick, skip leaderboard, autopick rate). */
+.leadrow .rk{color:var(--mut);font-size:11px;min-width:0;text-align:right}
+.leadrow>div{min-width:0}
 .leadbar{height:6px;border-radius:4px;background:var(--panel2);margin-top:3px;overflow:hidden}
 .leadbar>i{display:block;height:100%;background:var(--acc)}
 .heatrow{display:grid;grid-template-columns:repeat(24,1fr);gap:2px;align-items:end;height:46px;margin-top:6px}
