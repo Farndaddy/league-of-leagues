@@ -130,6 +130,15 @@ th{position:sticky;top:0;background:var(--panel2);z-index:2;font-size:11px;
   text-align:left;color:var(--mut)}
 .boardwrap table th:not(.rnd){min-width:140px;max-width:140px;white-space:normal}
 th .sub{display:block;font-size:10px;opacity:.7;font-weight:400}
+/* per-team "slots filled" meter in the Roster Grid column headers */
+.gfill{display:flex;align-items:center;gap:6px;margin-top:5px}
+.gfill .gbar{flex:1;min-width:26px;height:5px;border-radius:4px;
+  background:var(--bg);overflow:hidden}
+.gfill .gbar>i{display:block;height:100%;background:var(--acc)}
+.gfill .gnum{font-size:10px;font-weight:400;color:var(--mut);white-space:nowrap}
+.gfill.full .gbar>i{background:var(--good)}
+.gfill.full .gnum{color:var(--good)}
+.gfill .gover{color:var(--warn)}
 td.rnd,th.rnd{position:sticky;left:0;background:var(--panel2);z-index:1;
   font-weight:800;text-align:center;color:var(--mut);min-width:34px}
 .dir{display:block;font-size:9px;font-weight:400;opacity:.6;line-height:1}
@@ -1993,8 +2002,22 @@ function gridTable(sport,pm){
   });
   const slots=SLOTS[sport]||[];
   const maxOver=Math.max(0,...filled.map(f=>f.overflow.length));
+  // per-team slots-filled meter. `slots.length` is this sport's roster size, so
+  // the same code gives 17 for NFL, 19 for NBA, 24 for MLB with nothing hardcoded.
+  // Overflow ("over" rows) is reported separately as +N rather than folded into
+  // the bar, so the bar always reads as progress toward a full roster.
   let html='<table><tr><th class="rnd">Slot</th>'+
-    orderedTeams.map(t=>`<th><div>${esc(t.name)}</div><div class="sub">${esc(t.owner)}</div></th>`).join('')+'</tr>';
+    orderedTeams.map((t,i)=>{
+      const f=filled[i];
+      const n=f.slots.filter(x=>x.player).length, cap=slots.length;
+      const ov=f.overflow.length;
+      const pct=cap?Math.round((n/cap)*100):0;
+      return `<th><div>${esc(t.name)}</div><div class="sub">${esc(t.owner)}</div>`+
+        `<div class="gfill${cap&&n>=cap?' full':''}">`+
+        `<div class="gbar"><i style="width:${pct}%"></i></div>`+
+        `<span class="gnum">${n}/${cap}${ov?` <span class="gover">+${ov}</span>`:''}</span>`+
+        `</div></th>`;
+    }).join('')+'</tr>';
   slots.forEach((slot,r)=>{
     html+=`<tr><td class="rnd">${esc(slot)}</td>`+
       filled.map(f=>{ const p=f.slots[r].player;
