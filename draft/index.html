@@ -263,6 +263,12 @@ td.empty{color:#3d4a5f}
 .sec{background:var(--panel);border:1px solid var(--line);border-radius:11px;
   padding:13px;margin-bottom:11px}
 .sec h3{margin:0 0 10px;font-size:14px}
+/* collapsible admin sections */
+.acch{cursor:pointer;display:flex;align-items:center;justify-content:space-between;
+  gap:8px;user-select:none;-webkit-user-select:none}
+.acch .accx{font-size:16px;font-weight:400;color:var(--mut);line-height:1}
+.sec.acc.closed .acch{margin-bottom:0}
+.sec.acc.closed .accb{display:none}
 .chips{display:flex;gap:6px;flex-wrap:wrap}
 .log{max-height:200px;overflow-y:auto;font-size:12px;color:var(--mut)}
 .log div{padding:3px 0;border-bottom:1px solid var(--line)}
@@ -554,8 +560,9 @@ td.empty{color:#3d4a5f}
     </div>
 
     <div id="a-live">
-<div class="sec">
-      <h3>Draft control</h3>
+<div class="sec acc">
+      <h3 class="acch" data-acc="Draft Control">Draft Control<span class="accx">-</span></h3>
+      <div class="accb">
       <div class="arow">
         <button class="btn sm green" id="aStart">Start draft</button>
         <button class="btn sm warn" id="aPause">Pause</button>
@@ -565,9 +572,11 @@ td.empty{color:#3d4a5f}
         <button class="btn sm gray" id="aUndoSkip">Undo skip</button>
       </div>
       <div class="sm muted" id="aState"></div>
+      </div>
     </div>
-<div class="sec">
-      <h3>Clock</h3>
+<div class="sec acc">
+      <h3 class="acch" data-acc="Clock">Clock<span class="accx">-</span></h3>
+      <div class="accb">
       <div class="arow">
         <span class="sm muted">Timer:</span>
         <button class="btn sm gray" data-set="15">15m</button>
@@ -595,9 +604,11 @@ td.empty{color:#3d4a5f}
         <button class="btn sm" id="aQuietGo">Save</button>
         <span class="sm muted">(24hr clock — clock freezes, but whoever is up can still pick)</span>
       </div>
+      </div>
     </div>
-<div class="sec">
-      <h3>Draft for another team</h3>
+<div class="sec acc">
+      <h3 class="acch" data-acc="Draft for Another Team">Draft for Another Team<span class="accx">-</span></h3>
+      <div class="accb">
       <p class="sm muted" style="margin:0 0 10px">
         Pick a team here and the My Team tab and Players page act as that team — you can
         draft for them from anywhere, including any pick of theirs that got skipped.
@@ -633,20 +644,27 @@ td.empty{color:#3d4a5f}
         <button class="btn sm gray" id="aReconcile">Re-sync all</button>
       </div>
       <div class="sm muted" id="aFreeMsg"></div>
+      </div>
     </div>
-
-    <div class="sec">
-      <h3>Traded picks audit</h3>
+<div class="sec acc">
+      <h3 class="acch" data-acc="Position Eligibility">Position Eligibility<span class="accx">-</span></h3>
+      <div class="accb">
       <p class="sm muted" style="margin:0 0 10px">
-        Every pick that isn't with its original owner. Rows flagged in red have a manual
-        override that <b>disagrees</b> with the trade built into the draft board — usually a
-        trade entered twice, which cancels itself out. Clearing the override restores the
-        built-in trade.
+        Give a drafted player an extra position. They keep everything they already
+        had and gain the new one, so their owner can slot them either way.
       </p>
-      <div id="aTradeAudit"></div>
+      <div class="arow">
+        <select id="aPosPlayer" style="width:290px"></select>
+        <select id="aPosAdd" style="width:140px"></select>
+        <button class="btn sm" id="aPosGo">Add position</button>
+      </div>
+      <div class="sm muted" id="aPosMsg"></div>
+      <div id="aPosList" style="margin-top:10px"></div>
+      </div>
     </div>
-<div class="sec">
-      <h3>Trade picks</h3>
+<div class="sec acc">
+      <h3 class="acch" data-acc="Trade Picks">Trade Picks<span class="accx">-</span></h3>
+      <div class="accb">
       <div class="arow">
         <span class="sm muted">Pick #</span>
         <input id="aSwapA" type="number" placeholder="e.g. 145" style="width:100px">
@@ -662,6 +680,19 @@ td.empty{color:#3d4a5f}
         <button class="btn sm" id="aReassignGo">Reassign</button>
       </div>
       <div class="log" id="aSwapLog"></div>
+      </div>
+    </div>
+<div class="sec acc">
+      <h3 class="acch" data-acc="Traded Picks Audit">Traded Picks Audit<span class="accx">-</span></h3>
+      <div class="accb">
+      <p class="sm muted" style="margin:0 0 10px">
+        Every pick that isn't with its original owner. Rows flagged in red have a manual
+        override that <b>disagrees</b> with the trade built into the draft board — usually a
+        trade entered twice, which cancels itself out. Clearing the override restores the
+        built-in trade.
+      </p>
+      <div id="aTradeAudit"></div>
+      </div>
     </div>
     </div>
 
@@ -669,8 +700,50 @@ td.empty{color:#3d4a5f}
       <div class="banner info" id="aSetupWarn" style="display:none">
         The draft is live — changes here affect a draft in progress.
       </div>
-<div class="sec">
-      <h3>Keepers</h3>
+<div class="sec acc">
+      <h3 class="acch" data-acc="Timer Schedule">Timer Schedule<span class="accx">-</span></h3>
+      <div class="accb">
+      <label class="toggle" style="margin-bottom:10px">
+        <input type="checkbox" id="aSchedOn">
+        <div>
+          <b>Change the clock automatically by time of day</b>
+          <span>When on, the timer follows the blocks below and the manual timer buttons are ignored.</span>
+        </div>
+      </label>
+      <div id="aSchedRows"></div>
+      <div class="arow" style="margin-top:8px">
+        <button class="btn sm gray" id="aSchedAdd">Add block</button>
+        <button class="btn sm gray" id="aSchedPlanA">Load Plan A</button>
+        <button class="btn sm green" id="aSchedSave">Save schedule</button>
+        <span class="sm muted" id="aSchedNow"></span>
+      </div>
+      </div>
+    </div>
+<div class="sec acc">
+      <h3 class="acch" data-acc="Post-Pick Hype Photo">Post-Pick Hype Photo<span class="accx">-</span></h3>
+      <div class="accb">
+      <label class="toggle" style="margin-bottom:0">
+        <input type="checkbox" id="aHypeOn">
+        <div>
+          <b>Show a hype photo popup after a real pick</b>
+          <span>Pops up only for the team that just drafted — not autopicks, not admin-entered picks. Rotates randomly without repeating a photo for someone until they've seen the whole set, then pauses on its own. Add more photos any time and it starts back up automatically.</span>
+        </div>
+      </label>
+      </div>
+    </div>
+<div class="sec acc">
+      <h3 class="acch" data-acc="Co-Admins">Co-Admins<span class="accx">-</span></h3>
+      <div class="accb">
+      <p class="sm muted" style="margin:0 0 10px">
+        Give another owner admin rights. They sign in with their own team PIN and get
+        the Admin tab — no code to share. Toggle off any time.
+      </p>
+      <div id="aCoList"></div>
+      </div>
+    </div>
+<div class="sec acc">
+      <h3 class="acch" data-acc="Keepers">Keepers<span class="accx">-</span></h3>
+      <div class="accb">
       <p class="sm muted" style="margin:0 0 10px">
         3 per sport, 9 per team. Keepers show on rosters tagged KPR and can't be drafted again.
       </p>
@@ -686,9 +759,11 @@ td.empty{color:#3d4a5f}
       </div>
       <div class="sm muted mb-16" id="kMsg"></div>
       <div id="kList"></div>
+      </div>
     </div>
-<div class="sec">
-      <h3>Draft order — round 1 seats</h3>
+<div class="sec acc">
+      <h3 class="acch" data-acc="Draft Order">Draft Order<span class="accx">-</span></h3>
+      <div class="accb">
       <p class="sm muted" style="margin:0 0 10px">
         Drag to reorder, or use the dropdowns. Even rounds reverse automatically (snake).
         Traded picks follow their original team, so they stay correct when you reorder.
@@ -700,44 +775,11 @@ td.empty{color:#3d4a5f}
         <button class="btn sm gray" id="aSeatRandom">Randomize</button>
         <span class="sm muted" id="aSeatMsg"></span>
       </div>
-    </div>
-<div class="sec">
-      <h3>Timer schedule</h3>
-      <label class="toggle" style="margin-bottom:10px">
-        <input type="checkbox" id="aSchedOn">
-        <div>
-          <b>Change the clock automatically by time of day</b>
-          <span>When on, the timer follows the blocks below and the manual timer buttons are ignored.</span>
-        </div>
-      </label>
-      <div id="aSchedRows"></div>
-      <div class="arow" style="margin-top:8px">
-        <button class="btn sm gray" id="aSchedAdd">Add block</button>
-        <button class="btn sm gray" id="aSchedPlanA">Load Plan A</button>
-        <button class="btn sm green" id="aSchedSave">Save schedule</button>
-        <span class="sm muted" id="aSchedNow"></span>
       </div>
     </div>
-<div class="sec">
-      <h3>Post-pick hype photo</h3>
-      <label class="toggle" style="margin-bottom:0">
-        <input type="checkbox" id="aHypeOn">
-        <div>
-          <b>Show a hype photo popup after a real pick</b>
-          <span>Pops up only for the team that just drafted — not autopicks, not admin-entered picks. Rotates randomly without repeating a photo for someone until they've seen the whole set, then pauses on its own. Add more photos any time and it starts back up automatically.</span>
-        </div>
-      </label>
-    </div>
-<div class="sec">
-      <h3>Co-admins</h3>
-      <p class="sm muted" style="margin:0 0 10px">
-        Give another owner admin rights. They sign in with their own team PIN and get
-        the Admin tab — no code to share. Toggle off any time.
-      </p>
-      <div id="aCoList"></div>
-    </div>
-<div class="sec">
-      <h3>Google Sheet backup</h3>
+<div class="sec acc">
+      <h3 class="acch" data-acc="Google Sheet Backup">Google Sheet Backup<span class="accx">-</span></h3>
+      <div class="accb">
       <p class="sm muted" style="margin:0 0 10px">
         Every pick is copied into your Live Draft Board tab. Paste the Apps Script web app link here.
       </p>
@@ -753,6 +795,7 @@ td.empty{color:#3d4a5f}
       <p class="sm muted" style="margin:8px 0 0">
         Picks land in the 2026 Draft Board grid starting at C3, and in the Draft Log tab.
       </p>
+      </div>
     </div>
     </div>
 
@@ -909,6 +952,7 @@ let LASTSKIP = null;  // one-level undo buffer for the most recent skip, see adv
 let PRESENCE = {};    // teamId -> {sessionId:true, ...} — who's actually connected right now
 const SID = Math.random().toString(36).slice(2)+Date.now().toString(36); // this browser tab's session id
 let SLOTASSIGN = {}; // teamId -> sport -> slotIndex -> playerName (manual lineup choices)
+let POSEXTRA = {};   // keyified player name -> {p,pos} extra eligibility granted by an admin
 let HYPE_SEEN = {};  // teamId -> {photoId:true, ...} — which hype photos that team has already been shown
 // Post-pick hype photo rotation. To add more later, just append another
 // {id:'hypeN', file:'hypeN.jpg'} here and drop the matching jpg in draft/hype/ —
@@ -966,12 +1010,29 @@ async function syncQueues(){
   }catch(e){ console.warn('queue sync skipped',e); }
   finally{ queueSyncBusy=false; }
 }
+// Firebase RTDB keys can't contain . # $ [ ] or /  — sanitize a player name
+// into a safe, reasonably-unique key for the takenPlayers claim index.
+const keyify = s => s.trim().toLowerCase().replace(/[.#$\[\]\/]/g,'_');
 /* position lookup — from the pick itself, else the player pool */
 const POSMAP = () => { const m={}; POOL.forEach(p=>m[p.p.toLowerCase()]={pos:p.pos,sport:p.sport}); return m; };
+/* Admin-granted extra position eligibility (Firebase `posExtra`). Merged in
+   here rather than at each call site so EVERY consumer of a player's position
+   — the Roster Grid, My Team, the manual slot picker — sees the same thing.
+   Additive only: the player keeps every position they already had. */
+function withPosExtra(name,pos){
+  const ex=POSEXTRA[keyify(String(name||''))];
+  const add=(ex&&ex.pos)?String(ex.pos):'';
+  if(!add) return pos||'';
+  const out=[];
+  const push=t=>{ t=String(t).trim().toUpperCase(); if(t&&!out.includes(t)) out.push(t); };
+  String(pos||'').split(',').forEach(push);
+  add.split(',').forEach(push);
+  return out.join(',');
+}
 function posOf(name,given,pm){
-  if(given) return given;
+  if(given) return withPosExtra(name,given);
   const hit=(pm||POSMAP())[String(name).toLowerCase()];
-  return hit&&hit.pos ? hit.pos : '';
+  return withPosExtra(name, hit&&hit.pos ? hit.pos : '');
 }
 function sportOf(name,given,pm){
   if(given) return given;
@@ -1079,6 +1140,7 @@ function paintPresence(){
 }
 onValue(R('hypeSeen'), s=>{ HYPE_SEEN=s.val()||{}; });
 onValue(R('slotAssign'), s=>{ SLOTASSIGN=s.val()||{}; paintAll(); });
+onValue(R('posExtra'), s=>{ POSEXTRA=s.val()||{}; paintAll(); });
 
 const pushLog = txt => set(R('log/'+Date.now()+Math.floor(Math.random()*99)),
   {t:Date.now(),txt});
@@ -1205,9 +1267,6 @@ async function advance(fromIdx,reason,wasSkip){
   if(reason) pushLog(reason);
 }
 
-// Firebase RTDB keys can't contain . # $ [ ] or /  — sanitize a player name
-// into a safe, reasonably-unique key for the takenPlayers claim index.
-const keyify = s => s.trim().toLowerCase().replace(/[.#$\[\]\/]/g,'_');
 
 // One-time-per-load safety net, run for EVERY sign-in (not just admin): if
 // takenPlayers is missing a claim for a player who's actually in PICKS —
@@ -2807,6 +2866,102 @@ $('aFixGo').onclick=async()=>{
   $('aFixPlayer').value='';
   alert('Fixed.');
 };
+/* ---- collapsible admin sections ----
+   Open/closed state is per-browser (localStorage), never Firebase — one
+   admin collapsing a section must not change anyone else's view. Defaults to
+   open, so nothing is hidden from someone who has never touched it. */
+const ACC_KEY='lolAdminAcc';
+const accGet=()=>{ try{ return JSON.parse(localStorage.getItem(ACC_KEY)||'{}'); }catch(e){ return {}; } };
+const accSet=o=>{ try{ localStorage.setItem(ACC_KEY,JSON.stringify(o)); }catch(e){} };
+function wireAccordions(){
+  const st=accGet();
+  document.querySelectorAll('#v-admin .sec.acc').forEach(sec=>{
+    const h=sec.querySelector('.acch');
+    if(!h||h.dataset.wired) return;          // idempotent — safe to call on every paint
+    h.dataset.wired='1';
+    const name=h.dataset.acc;
+    if(st[name]==='closed') sec.classList.add('closed');
+    const sync=()=>{ const x=h.querySelector('.accx');
+      if(x) x.textContent=sec.classList.contains('closed')?'+':'–'; };
+    sync();
+    h.onclick=()=>{
+      sec.classList.toggle('closed');
+      const s=accGet(); s[name]=sec.classList.contains('closed')?'closed':'open'; accSet(s);
+      sync();
+    };
+  });
+}
+
+/* ---- Position Eligibility ----
+   Grants a drafted player an EXTRA position. Writes to a dedicated `posExtra`
+   node — it never edits the pick itself, so nothing about who drafted whom,
+   or when, is altered. withPosExtra() merges it into posOf(), so the new
+   position immediately becomes slottable everywhere. */
+const POS_BY_SPORT={
+  NFL:['QB','RB','WR','TE','LB','DE','DT','CB','S','DST'],
+  NBA:['PG','SG','SF','PF','C'],
+  MLB:['C','1B','2B','3B','SS','OF','SP','RP'],
+};
+function posEligRows(){
+  const pm=POSMAP(), rows=[];
+  TEAMS.forEach(t=>rosterOf(t.id,pm).forEach(r=>rows.push({...r,tm:t})));
+  return rows.sort((a,b)=>a.p.localeCompare(b.p));
+}
+function syncPosAdd(rows){
+  const sel=$('aPosPlayer'), add=$('aPosAdd');
+  if(!sel||!add) return;
+  const r=(rows||posEligRows()).find(x=>x.p===sel.value);
+  const list=POS_BY_SPORT[r&&r.sport]||
+    [...new Set([].concat(...Object.values(POS_BY_SPORT)))];
+  const keep=add.value;
+  add.innerHTML=list.map(p=>`<option value="${p}">${p}</option>`).join('');
+  if(list.includes(keep)) add.value=keep;
+}
+function paintPosElig(){
+  const sel=$('aPosPlayer'); if(!sel) return;
+  const rows=posEligRows();
+  const keep=sel.value;
+  sel.innerHTML = rows.length
+    ? rows.map(r=>`<option value="${esc(r.p)}">${esc(r.p)} — ${esc(r.tm.name)}${r.pos?' ('+esc(r.pos)+')':''}</option>`).join('')
+    : '<option value="">No drafted players yet</option>';
+  if(rows.some(r=>r.p===keep)) sel.value=keep;
+  syncPosAdd(rows);
+
+  const host=$('aPosList'); if(!host) return;
+  const ent=Object.entries(POSEXTRA);
+  host.innerHTML = ent.length
+    ? `<table class="rtable"><tr><th>Player</th><th>Added</th><th></th></tr>`+
+      ent.map(([k,v])=>`<tr><td>${esc((v&&v.p)||k)}</td><td>${esc((v&&v.pos)||'')}</td>`+
+        `<td><button class="btn sm gray" data-posrm="${esc(k)}">Remove</button></td></tr>`).join('')+
+      `</table>`
+    : '<div class="sm muted">No added positions yet.</div>';
+  host.onclick=async e=>{
+    const b=e.target.closest('[data-posrm]'); if(!b) return;
+    const k=b.dataset.posrm, v=POSEXTRA[k]||{};
+    if(!confirm(`Remove the added position${v.pos?' ('+v.pos+')':''} from ${v.p||k}?`)) return;
+    await set(R('posExtra/'+k),null);
+    pushLog(`Admin removed added position from ${v.p||k}`);
+  };
+}
+$('aPosPlayer').onchange=()=>syncPosAdd();
+$('aPosGo').onclick=async()=>{
+  const nm=$('aPosPlayer').value, add=$('aPosAdd').value;
+  if(!nm||!add) return;
+  const r=posEligRows().find(x=>x.p===nm);
+  const cur=(r&&r.pos)||'';
+  if(cur.split(',').map(s=>s.trim().toUpperCase()).includes(add)){
+    $('aPosMsg').textContent=`${nm} already counts as ${add}.`; return;
+  }
+  if(!confirm(`Give ${nm} ${add} eligibility?\n\nThey keep ${cur||'their current positions'} and gain ${add}. No pick is changed.`)) return;
+  const key=keyify(nm);
+  const prev=(POSEXTRA[key]&&POSEXTRA[key].pos)||'';
+  const merged=[...new Set(prev.split(',').concat([add])
+    .map(s=>s.trim().toUpperCase()).filter(Boolean))].join(',');
+  await set(R('posExtra/'+key),{p:nm,pos:merged,at:Date.now()});
+  pushLog(`Admin gave ${nm} ${add} eligibility`);
+  $('aPosMsg').textContent=`${nm} can now be slotted at ${add}.`;
+};
+
 /* Manually release a stuck player claim. Safety-checked: refuses if the
    player really IS in a made pick, so it can't be used to accidentally
    double-draft someone. For genuinely orphaned claims only. */
@@ -3167,7 +3322,9 @@ function paintAll(){
     paintCoAdmins();
     paintActing();
     paintFixSlot();
+    paintPosElig();
     paintTradeAudit();
+    wireAccordions();
     paintQuickBar();
     $('aQuietOn').checked=!!S.quietOn;
     if(document.activeElement!==$('aQuietS')) $('aQuietS').value=S.quietS;
