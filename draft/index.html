@@ -2273,7 +2273,12 @@ $('freeGo').onclick=async()=>{
 };
 
 /* ===== PLAYERS PAGE ===== */
-const DEFAULT_RANK={NFL:'pre',NBA:'dyn',MLB:'dyn'};
+/* NBA defaults to pre-season, not dynasty: the dynasty NBA rankings haven't
+   been refreshed since March 2026 and don't include the 2026 rookie class at
+   all, so the dynasty view silently buries every rookie at the bottom of the
+   list. Pre-season is the current snapshot (refreshed 2026-08-24). Dynasty is
+   still selectable from the dropdown. */
+const DEFAULT_RANK={NFL:'pre',NBA:'pre',MLB:'dyn'};
 const RANK_LABEL={pre:'Pre-season',ros:'Rest of season',dyn:'Dynasty'};
 let plUserPickedRank=false;
 
