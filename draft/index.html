@@ -534,6 +534,14 @@ td.empty{color:#3d4a5f}
       <div class="plist hide" id="qResults" style="max-height:34vh;margin-bottom:12px"></div>
       <h2>Your queue <span class="muted sm" id="qCount"></span></h2>
       <div id="qList"></div>
+      <div class="sec" style="margin-top:14px">
+        <h3>Queue backups</h3>
+        <p class="sm muted" style="margin:0 0 10px">
+          This device saves a copy of your queue every time it changes. If your queue
+          ever looks wrong, restore one of these. Saved on this device only.
+        </p>
+        <div id="qBackups"></div>
+      </div>
     </div>
   </section>
 
@@ -1001,19 +1009,37 @@ const taken = () => {
    it fires for every client the moment a pick lands, and it's idempotent
    (safe if more than one client runs it at once). */
 let queueSyncBusy=false;
+/* THE QUEUE-RESET BUG (found 2026-08-24, after several people reported losing
+   their queues). This used to build `filtered` from the LOCAL `QUEUES`
+   snapshot and write it back with update(), which REPLACES the whole list at
+   that path. Two things made that severe:
+     1. it runs on EVERY client, for EVERY team's queue — so any teammate's
+        browser could overwrite your queue, not just your own;
+     2. a tab that had been open a while (or had a lagging connection) held a
+        stale copy, and writing it back silently erased every player added
+        since that copy was taken.
+   Now each team's list is filtered inside its own transaction, so the removal
+   is always computed against the live server value and can never clobber a
+   newer addition. Also skips teams that have nothing to remove, so an idle
+   queue is never written to at all. */
 async function syncQueues(){
   if(queueSyncBusy) return;           // avoid overlapping runs on rapid-fire picks
   queueSyncBusy=true;
   try{
     const gone=taken();
-    const patch={};
+    if(!gone.size) return;            // nothing drafted yet — nothing to purge
     for(const tid of Object.keys(QUEUES)){
       const q=QUEUES[tid];
       if(!q||!Array.isArray(q.list)||!q.list.length) continue;
-      const filtered=q.list.filter(x=>!gone.has((x.p||'').toLowerCase()));
-      if(filtered.length!==q.list.length) patch[tid+'/list']=filtered;
+      // cheap local pre-check so we don't open a transaction for every team on
+      // every pick; the transaction itself re-checks against the live value.
+      if(!q.list.some(x=>gone.has((x.p||'').toLowerCase()))) continue;
+      await runTransaction(R('queues/'+tid+'/list'),cur=>{
+        if(!Array.isArray(cur)||!cur.length) return cur;
+        const next=cur.filter(x=>!gone.has((x.p||'').toLowerCase()));
+        return next.length===cur.length ? cur : next;   // no change -> abort write
+      });
     }
-    if(Object.keys(patch).length) await update(R('queues'),patch);
   }catch(e){ console.warn('queue sync skipped',e); }
   finally{ queueSyncBusy=false; }
 }
@@ -1109,7 +1135,7 @@ onValue(R('seatOrder'), s=>{
 });
 onValue(R('picks'), s=>{ PICKS=s.val()||{}; paintAll(); checkImmediateAutoPick(); syncQueues(); });
 onValue(R('overrides'), s=>{ OVER=s.val()||{}; paintAll(); });
-onValue(R('queues'), s=>{ QUEUES=s.val()||{}; paintQueue(); checkImmediateAutoPick(); syncQueues(); });
+onValue(R('queues'), s=>{ QUEUES=s.val()||{}; backupMyQueue(); paintQueue(); checkImmediateAutoPick(); syncQueues(); });
 onValue(R('keepers'), s=>{ KEEPERS=s.val()||{}; paintAll(); paintKeepers(); syncQueues(); });
 onValue(R('coadmins'), s=>{ COADMIN=s.val()||{}; recomputeAdmin(); paintAll(); paintCoAdmins(); });
 onValue(R('log'), s=>{ LOG=Object.values(s.val()||{}); paintLog(); });
@@ -2182,6 +2208,61 @@ $('bJump').onclick=()=>{
 
 /* ===== QUEUE ===== */
 let dragBusy=false;   // true while a queue drag gesture is in progress — see paintQueue()
+
+/* ===== Per-device queue backups =====
+   A local safety net, independent of Firebase: every time this browser sees a
+   change to its own team's queue, it keeps a timestamped copy in localStorage.
+   Deliberately per-device rather than server-side — if a server-side bug is
+   what ate the queue, a server-side backup could be eaten by the same bug.
+   Empty queues are never snapshotted, so a wipe can't push the good copies out
+   of the history. */
+const QBK='lolQueueBackup', QBK_MAX=20;
+const qbkAll=()=>{ try{ return JSON.parse(localStorage.getItem(QBK)||'{}'); }catch(e){ return {}; } };
+const qbkSave=o=>{ try{ localStorage.setItem(QBK,JSON.stringify(o)); }catch(e){} };
+function backupMyQueue(){
+  if(!ME) return;
+  const list=myQueue();
+  if(!Array.isArray(list)||!list.length) return;      // never snapshot an empty queue
+  const all=qbkAll(), arr=all[ME]||[];
+  const sig=list.map(x=>x.p).join('|');
+  if(arr.length&&arr[0].sig===sig) return;            // unchanged since last snapshot
+  arr.unshift({at:Date.now(),sig,list});
+  all[ME]=arr.slice(0,QBK_MAX);
+  qbkSave(all);
+}
+function paintQueueBackups(){
+  const host=$('qBackups'); if(!host) return;
+  if(!ME){ host.innerHTML=''; return; }
+  const arr=(qbkAll()[ME])||[];
+  const curSig=myQueue().map(x=>x.p).join('|');
+  host.innerHTML = arr.length
+    ? arr.map((b,i)=>{
+        const names=b.list.slice(0,3).map(x=>x.p).join(', ');
+        const isNow=b.sig===curSig;
+        return `<div class="leadrow" style="grid-template-columns:1fr auto">
+          <div><b>${b.list.length} player${b.list.length===1?'':'s'}</b>
+            <span class="sm muted">· ${fmtWhen(b.at)}</span>
+            <div class="sm muted">${esc(names)}${b.list.length>3?', …':''}</div></div>
+          ${isNow?'<span class="sm muted">current</span>'
+                 :`<button class="btn sm gray" data-qrestore="${i}">Restore</button>`}
+        </div>`;
+      }).join('')
+    : '<div class="sm muted">No backups yet — add players to your queue and they\'ll appear here.</div>';
+  host.onclick=async e=>{
+    const b=e.target.closest('[data-qrestore]'); if(!b) return;
+    const snap=((qbkAll()[ME])||[])[+b.dataset.qrestore];
+    if(!snap) return;
+    const gone=taken();
+    const keep=snap.list.filter(x=>!gone.has((x.p||'').toLowerCase()));
+    const dropped=snap.list.length-keep.length;
+    if(!confirm(`Restore this queue from ${fmtWhen(snap.at)}?\n\n`+
+      `${keep.length} player${keep.length===1?'':'s'} will replace your current queue.`+
+      (dropped?`\n${dropped} already drafted and will be left out.`:'')))
+      return;
+    await set(R('queues/'+ME+'/list'),keep);
+    pushLog(`${team(ME).name} restored their queue from a backup`);
+  };
+}
 function myQueue(){ return (QUEUES[ME]&&QUEUES[ME].list)||[]; }
 /* Every queue mutation (add/reorder/remove) goes through runTransaction
    against the live Firebase value, NOT a plain set() built from the local
@@ -2275,6 +2356,7 @@ function paintQueue(){
     });
   };
   wireQueueDrag();
+  paintQueueBackups();
 }
 
 /* Touch-and-mouse drag reordering for the queue, via Pointer Events (native
