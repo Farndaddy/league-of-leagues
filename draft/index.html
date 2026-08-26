@@ -748,6 +748,10 @@ td.empty{color:#3d4a5f}
           <span>Pops up only for the team that just drafted — not autopicks, not admin-entered picks. Rotates randomly without repeating a photo for someone until they've seen the whole set, then pauses on its own. Add more photos any time and it starts back up automatically.</span>
         </div>
       </label>
+      <div class="arow" style="margin-top:10px;border-top:1px solid var(--line);padding-top:9px">
+        <span class="sm muted" id="aHypeStat"></span>
+        <button class="btn sm gray" id="aHypeReset">Start the photos over</button>
+      </div>
       </div>
     </div>
 <div class="sec acc">
@@ -1178,7 +1182,7 @@ function paintPresence(){
     alert(`${t.name} (${t.owner}) — ${on?'online right now':'not currently connected'}`);
   };
 }
-onValue(R('hypeSeen'), s=>{ HYPE_SEEN=s.val()||{}; });
+onValue(R('hypeSeen'), s=>{ HYPE_SEEN=s.val()||{}; paintHypeStat(); });
 onValue(R('slotAssign'), s=>{ SLOTASSIGN=s.val()||{}; paintAll(); });
 onValue(R('posExtra'), s=>{ POSEXTRA=s.val()||{}; paintAll(); });
 
@@ -3355,6 +3359,25 @@ $('aHypeOn').onchange=e=>{
   update(R('state'),{hypeOn:e.target.checked});
   pushLog('Post-pick hype photo turned '+(e.target.checked?'ON':'OFF')+' by admin');
 };
+/* Clears the "already seen" record so every team starts the rotation over.
+   Wipes only `hypeSeen` — nothing about picks, rosters or the draft. Without
+   this, the only way to restart the popups was to add new photo files. */
+$('aHypeReset').onclick=async()=>{
+  if(!confirm(`Start the hype photos over for all ${TEAMS.length} teams?\n\n`+
+    `Everyone becomes eligible for all ${HYPE_PHOTOS.length} photos again. Nothing about the draft changes.`)) return;
+  await set(R('hypeSeen'),null);
+  pushLog('Admin reset the hype photo rotation — everyone starts over');
+};
+/* how many teams have exhausted the set — explains "I stopped getting photos" */
+function paintHypeStat(){
+  const el=$('aHypeStat'); if(!el) return;
+  const total=HYPE_PHOTOS.length;
+  const done=TEAMS.filter(t=>{
+    const seen=HYPE_SEEN[t.id]||{};
+    return HYPE_PHOTOS.every(h=>seen[h.id]);
+  }).length;
+  el.textContent=`${total} photo${total===1?'':'s'} · ${done} of ${TEAMS.length} team${TEAMS.length===1?'':'s'} have seen them all`;
+}
 
 /* ---- Google Sheet backup ---- */
 $('aHookSave').onclick=async()=>{
@@ -3510,6 +3533,7 @@ function paintAll(){
       (S.schedOn?' (from schedule)':'')+(S.extraMs?` (+${Math.round(S.extraMs/60000)}m)`:'');
     $('aSchedOn').checked=!!S.schedOn;
     $('aHypeOn').checked=S.hypeOn!==false;
+    paintHypeStat();
     $('aUndoSkip').disabled=!LASTSKIP;
     $('aUndoSkip').title=LASTSKIP?`Undo skip on #${LASTSKIP.idx+1}`:'No skip to undo';
     if(document.activeElement!==$('aHook')) $('aHook').value=S.sheetHook||'';
