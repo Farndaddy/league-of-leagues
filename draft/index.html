@@ -115,6 +115,7 @@ h2{font-size:16px;margin:0 0 10px}
 .pill.NFL{background:#ff6b6b22;color:var(--nfl);border:1px solid #ff6b6b44}
 .pill.NBA{background:#60a5fa22;color:var(--nba);border:1px solid #60a5fa44}
 .pill.MLB{background:#fbbf2422;color:var(--mlb);border:1px solid #fbbf2444}
+.pill.SUPP{background:#a78bfa22;color:#c4b5fd;border:1px solid #a78bfa44}
 .sportfilter{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
 .sf{padding:6px 12px;border-radius:20px;background:var(--panel2);
   border:1px solid var(--line);color:var(--mut);font-size:13px;font-weight:600}
@@ -443,6 +444,7 @@ td.empty{color:#3d4a5f}
           <option value="NFL">NFL</option>
           <option value="NBA">NBA</option>
           <option value="MLB">MLB</option>
+          <option value="SUPP">Supplemental</option>
         </select>
       </div>
       <div>
@@ -470,6 +472,7 @@ td.empty{color:#3d4a5f}
         <input id="plSearch" type="text" placeholder="Player name…" autocomplete="off">
       </div>
     </div>
+    <div id="plSuppSummary" class="hide" style="margin-bottom:12px"></div>
     <div class="sm muted mb-16" id="plCount"></div>
     <div class="plist" id="plList" style="max-height:66vh"></div>
   </section>
@@ -992,6 +995,9 @@ async function loadPool(){
     if(r.ok){ POOL = await r.json(); poolLoaded=true; }
   }catch(e){}
   if(!poolLoaded) POOL = [];
+  // appended in code, never stored in players.json, so a rankings refresh
+  // can't drop them
+  POOL = POOL.filter(p=>p.sport!==SUPP_SPORT).concat(SUPP_PICKS);
   // set each sport's default ranking the first time the pool arrives
   if(!plUserPickedRank) $('plRank').value=DEFAULT_RANK[$('plSport').value]||'pre';
   renderPick();
@@ -1357,6 +1363,15 @@ async function submitPick(idx,player,sport,pos,byAuto,selfPick){
   // dedicated claim node can't race like that: Firebase resolves concurrent
   // transactions on the same path one at a time, so only one claim can ever
   // win for a given player.
+  // League rule: one supplemental pick per team. Enforced here in submitPick
+  // so it holds for every path — own draft button, queue, autopick, and the
+  // admin "draft into a slot" tool — rather than only in the UI.
+  if(isSupp(player)){
+    const held=suppHeldBy(ownerOf(idx));
+    if(held) return {ok:false,
+      msg:`${team(ownerOf(idx)).name} already has ${held.p}. Only one supplemental pick per team.`};
+  }
+
   const key=keyify(player);
   const claim=await runTransaction(R('takenPlayers/'+key),cur=>{
     if(cur) return;         // already claimed — abort transaction, no change
@@ -2478,7 +2493,29 @@ function playerType(p){
    Pitchers-only rows, which reuse playerType() so the Ohtani-style
    (Batter)/(Pitcher) name suffix rule still applies. No "K" — this league
    doesn't roster kickers, so they're left out everywhere. */
+/* ===== Supplemental picks =====
+   NOT extra rounds. Each is a draftable ASSET: spend a normal pick on
+   "Supplemental Pick #3" and you own the 3rd slot in all three supplemental
+   drafts (NFL, NBA, MLB) later. Defined here rather than in players.json so a
+   rankings refresh can't wipe them. sport:'SUPP' keeps them out of the Roster
+   Grid and the NFL/NBA/MLB roster views automatically, since those all filter
+   by sport — so they cost a pick without eating a roster spot. */
+const SUPP_COUNT = 12;
+const SUPP_SPORT = 'SUPP';
+const SUPP_PICKS = Array.from({length:SUPP_COUNT},(_,i)=>({
+  p:`Supplemental Pick #${i+1}`, sport:SUPP_SPORT, pos:'SUPP', tm:'',
+  r:{pre:i+1,dyn:i+1,ros:i+1}
+}));
+const isSupp = name => /^supplemental pick #\d+$/i.test(String(name||'').trim());
+/* which team already holds a supplemental pick (one per team — league rule) */
+function suppHeldBy(tid){
+  for(const [i,p] of Object.entries(PICKS))
+    if(p.team===tid && isSupp(p.p)) return {idx:+i,p:p.p};
+  return null;
+}
+
 const POS_OPTIONS = {
+  SUPP: [{v:'ALL', l:'All', toks:null}],
   NFL: [
     {v:'OFF',  l:'Offense', toks:['QB','RB','WR','TE','DST']},
     {v:'QB',   l:'QB',      toks:['QB']},
@@ -2546,6 +2583,25 @@ function paintPlayers(){
   $('plPos').innerHTML=opts.map(o=>`<option value="${esc(o.v)}">${esc(o.l)}</option>`).join('');
   $('plPos').value=opts.some(o=>o.v===cur)?cur:opts[0].v;
   const posOpt=opts.find(o=>o.v===$('plPos').value)||opts[0];
+
+  // Supplemental view gets a standings-style summary above the list so everyone
+  // can see the whole slot order at a glance, taken and open together.
+  const sumHost=$('plSuppSummary');
+  if(sumHost){
+    sumHost.classList.toggle('hide',sport!==SUPP_SPORT);
+    if(sport===SUPP_SPORT){
+      const mine=ME?suppHeldBy(actingTeam()||ME):null;
+      sumHost.innerHTML=
+        `<div class="sm muted" style="margin-bottom:8px">Spending a pick here buys that slot in all three supplemental drafts. One per team.`+
+        (mine?` <b style="color:var(--warn)">You already hold ${esc(mine.p)}.</b>`:'')+`</div>`+
+        `<div class="chips">`+SUPP_PICKS.map(sp=>{
+          const h=holderOf(sp.p);
+          const n=sp.p.replace(/\D+/g,'');
+          return `<span class="pchip${h?' on':''}" style="cursor:default" title="${h?esc(team(h.by).name):'Still available'}">`+
+            `#${n} · ${h?esc(team(h.by).name):'open'}</span>`;
+        }).join('')+`</div>`;
+    }
+  }
 
   let list=POOL.filter(p=>p.sport===sport);
   if(posOpt) list=list.filter(p=>posMatches(p,posOpt));
