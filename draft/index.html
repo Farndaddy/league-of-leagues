@@ -483,6 +483,7 @@ td.empty{color:#3d4a5f}
       <button class="sf on" data-m="board">Draft board</button>
       <button class="sf" data-m="order">Pick order</button>
       <button class="sf" data-m="grid">Roster grid</button>
+      <button class="sf" data-m="supp">Supplemental</button>
     </div>
     <div class="arow" id="bGridCtl">
       <div class="sportsel" id="bSport">
@@ -2090,13 +2091,40 @@ function resetWrap(scroll){
   w.style.maxHeight = scroll ? '74vh' : 'none';
 }
 function paintBoard(){
-  resetWrap(bMode!=='grid');
+  // 'supp' opts out of the scrolling board frame — it's a short plain list,
+  // and the frame's border would double up with the card's own border.
+  resetWrap(bMode!=='grid'&&bMode!=='supp');
   $('bGridCtl').classList.toggle('hide',bMode!=='grid');
   $('bLegend').classList.toggle('hide',bMode!=='board');
   $('bJump').classList.toggle('hide',bMode!=='board');
   if(bMode==='grid') return paintGrid();
   if(bMode==='order') return paintOrder();
+  if(bMode==='supp') return paintSupp();
   return paintTheBoard();
+}
+
+/* Supplemental slot order — 1 through 12, owner or "Open". This is the order
+   the three supplemental drafts (NFL, NBA, MLB) will run in. */
+function paintSupp(){
+  const rows=SUPP_PICKS.map((sp,i)=>{
+    const h=holderOf(sp.p);
+    return {n:i+1, tid:h?h.by:null, rd:h&&h.rd?h.rd:null};
+  });
+  const takenN=rows.filter(r=>r.tid).length;
+  $('bWrap').innerHTML=
+    `<div class="sec" style="margin:0">
+      <p class="sm muted" style="margin:0 0 12px">
+        Whoever owns a slot picks in that position in all three supplemental drafts.
+        One per team.
+      </p>
+      ${rows.map(r=>`
+        <div class="leadrow" style="grid-template-columns:30px 1fr auto">
+          <span class="rk">${r.n}</span>
+          <div${r.tid?'':' class="muted"'}>${r.tid?esc(team(r.tid).name):'Open'}</div>
+          <span class="sm muted">${r.tid?esc(team(r.tid).owner)+(r.rd?' · Rd '+r.rd:''):''}</span>
+        </div>`).join('')}
+    </div>`;
+  $('bInfo').textContent=`${takenN} of ${SUPP_COUNT} supplemental slots claimed`;
 }
 
 /* teams across the top, roster slots down the side */
