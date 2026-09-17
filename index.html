@@ -380,6 +380,28 @@
     /* Overview stat cards order */
     #ov-stats { order: 1; }
   }
+/* Drafted Roster by Sport */
+.rbs-grid{display:grid;gap:16px;}
+.rbs-team{border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--card);}
+.rbs-team-head{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border);}
+.rbs-team-name{font-weight:600;}
+.rbs-team-owner{color:var(--text-2);font-size:12px;}
+.rbs-sports{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:0;}
+.rbs-sport{padding:10px 14px;border-right:1px solid var(--border);}
+.rbs-sport:last-child{border-right:none;}
+.rbs-sport-head{font-size:11px;font-weight:700;letter-spacing:.06em;padding-bottom:6px;margin-bottom:6px;border-bottom:1px solid var(--border);display:flex;align-items:center;}
+.rbs-count{margin-left:auto;color:var(--text-m);font-weight:500;}
+.rbs-row{display:flex;align-items:baseline;gap:8px;padding:3px 0;font-size:12px;border-bottom:1px solid transparent;}
+.rbs-row-open{opacity:.45;}
+.rbs-slot{flex:0 0 42px;font-size:10px;font-weight:600;color:var(--text-m);letter-spacing:.04em;}
+.rbs-slot-x{color:#f59e0b;}
+.rbs-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.rbs-meta{flex:0 0 auto;font-size:10px;color:var(--text-m);white-space:nowrap;}
+.rbs-kpr{color:#10b981;}
+.rbs-trd{color:#f59e0b;}
+.rbs-open{flex:1 1 auto;font-size:11px;color:var(--text-m);}
+.rbs-empty{font-size:11px;color:var(--text-m);padding:4px 0;}
+@media(max-width:700px){.rbs-sport{border-right:none;border-bottom:1px solid var(--border);}}
 </style>
 </head>
 <body>
@@ -461,15 +483,17 @@
     <div class="flex-between mb-16">
       <div>
         <div class="card-title" style="margin-bottom:4px">Draft Results</div>
-        <div style="font-size:12px;color:var(--text-2)">All picks in chronological order</div>
+        <div style="font-size:12px;color:var(--text-2)" id="dr-subtitle">All picks in chronological order</div>
       </div>
       <div class="pills" id="dr-year-pills"></div>
     </div>
     <div class="mb-16" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
       <div class="results-toggle">
-        <button class="toggle-btn active" id="btn-seq" onclick="setResultsView('seq')">By Order</button>
+        <button class="toggle-btn active" id="btn-sport" onclick="setResultsView('sport')">Roster by Sport</button>
+        <button class="toggle-btn" id="btn-seq" onclick="setResultsView('seq')">By Order</button>
         <button class="toggle-btn" id="btn-team" onclick="setResultsView('team')">By Team</button>
       </div>
+      <div class="pills" id="dr-sport-pills" style="margin-left:8px"></div>
     </div>
     <div id="dr-content"></div>
   </div>
@@ -574,7 +598,7 @@
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const CONFIG = {
   SPREADSHEET_ID: '1JXV5W4bmmyGzZkKwqm94juW7qP8H0WEeg1GFJRK2M34',
-  DRAFT_YEARS: [2026,2025,2024,2023,2022,2021],
+  DRAFT_YEARS: [2027,2026,2025,2024,2023,2022,2021],
   SEASONS: [2026,2025,2024,2023,2022],
   SHEETS: {
     standings_overall: '1905868862',
@@ -597,7 +621,8 @@ const S = {
   tab: 'overview',
   draftYear: 2026,
   resultsYear: 2026,
-  resultsView: 'seq',
+  resultsSport: 'All',
+  resultsView: 'sport',
   standings: { overall:[], nfl:[], nba:[], mlb:[] },
   standingsView: 'overall',
   stdYear: 2026,
@@ -1187,8 +1212,25 @@ function renderDraftResults(){
     <button class="pill ${y===S.resultsYear?'active':''}" onclick="setResultsYear(${y})">${y}</button>
   `).join('');
 
+  document.getElementById('dr-subtitle').textContent = {
+    sport: 'Each team\'s drafted roster and keepers, slotted by sport',
+    seq:   'All picks in chronological order',
+    team:  'Every pick grouped by the team that made it',
+  }[S.resultsView] || '';
+  document.getElementById('btn-sport').classList.toggle('active', S.resultsView==='sport');
   document.getElementById('btn-seq').classList.toggle('active', S.resultsView==='seq');
   document.getElementById('btn-team').classList.toggle('active', S.resultsView==='team');
+
+  // Sport filter pills — only meaningful on the Roster by Sport view
+  const spEl = document.getElementById('dr-sport-pills');
+  if(S.resultsView === 'sport'){
+    spEl.style.display = '';
+    spEl.innerHTML = ['All','NFL','NBA','MLB'].map(sp=>`
+      <button class="pill ${sp===S.resultsSport?'active':''}" onclick="setResultsSport('${sp}')">${sp}</button>
+    `).join('');
+  } else {
+    spEl.style.display = 'none';
+  }
 
   const draft = S.drafts[S.resultsYear];
   const el = document.getElementById('dr-content');
@@ -1216,6 +1258,7 @@ function renderDraftResults(){
         teamName: teams[ti]?.team || '?',
         player: p.player,
         sport: p.sport,
+        pos: p.pos,
         traded_from: p.traded_from,
         is_future: draft.is_future && !p.player,
         is_traded_away: !!(p.is_traded),
@@ -1224,7 +1267,9 @@ function renderDraftResults(){
     }
   }
 
-  if(S.resultsView === 'seq'){
+  if(S.resultsView === 'sport'){
+    renderResultsBySport(draft, allPicks, teams, el);
+  } else if(S.resultsView === 'seq'){
     renderResultsSeq(allPicks, teams, el);
   } else {
     renderResultsByTeam(allPicks, teams, el);
@@ -1358,6 +1403,146 @@ function renderResultsByTeam(allPicks, teams, el){
   }
   html += '</div>';
   el.innerHTML = html || '<div class="empty-state">No data</div>';
+}
+
+// ─── DRAFTED ROSTER BY SPORT ───────────────────────────────────────────────────
+// Mirrors the Roster Grid in the live draft app: each team's drafted players +
+// keepers, slotted into that sport's real roster spots.
+const ROSTER_SLOTS = {
+  NFL:['QB','RB','RB','WR','WR','WR','TE','Flex','Flex','IDP','IDP','DEF','B','B','B','B','B'],
+  NBA:['PG','SG','SF','PF','C','C','G','G','F','F','UT','UT','UT','UT','UT','UT','B','B','B'],
+  MLB:['C','1B','2B','3B','SS','OF','OF','OF','OF','MI','CI','UT','SP','P','P','P','P','P','P','P','RP','B','B','B'],
+};
+const ROSTER_ELIG = {
+  QB:['QB'], RB:['RB'], WR:['WR'], TE:['TE'],
+  Flex:['RB','WR','TE'],
+  IDP:['LB','DE','DT','CB','S'],
+  DEF:['DST'],
+  PG:['PG'], SG:['SG'], SF:['SF'], PF:['PF'],
+  G:['PG','SG'], F:['SF','PF'],
+  '1B':['1B'], '2B':['2B'], '3B':['3B'], SS:['SS'],
+  OF:['OF','LF','CF','RF'],
+  MI:['2B','SS'], CI:['1B','3B'],
+  SP:['SP'], RP:['RP'], P:['SP','RP'],
+  C:['C'],
+};
+function posTokens(p){ return String(p.pos||'').split(',').map(x=>x.trim().toUpperCase()).filter(Boolean); }
+function slotFits(slot, player){
+  if(slot === 'B') return true;
+  if(slot === 'UT'){
+    if(player.sport === 'NBA') return true;
+    return posTokens(player).every(t => !['SP','RP','P'].includes(t));
+  }
+  return posTokens(player).some(t => (ROSTER_ELIG[slot]||[]).includes(t));
+}
+// Greedy fill, scarcest slots first, so a C never gets wasted in a UT.
+function fillRosterSlots(sport, players){
+  const slots = (ROSTER_SLOTS[sport]||[]).map(s => ({slot:s, player:null}));
+  const left = players.slice();
+  const order = [...slots.keys()].sort((a,b)=>{
+    const rank = s => s==='B' ? 3 : s==='UT' ? 2 : ['Flex','G','F','MI','CI','P'].includes(s) ? 1 : 0;
+    return rank(slots[a].slot) - rank(slots[b].slot);
+  });
+  for(const i of order){
+    const s = slots[i];
+    let best = -1, bestN = 1e9;
+    left.forEach((pl,j)=>{
+      if(!slotFits(s.slot, pl)) return;
+      const n = slots.filter(x => !x.player && slotFits(x.slot, pl)).length;
+      if(n < bestN){ bestN = n; best = j; }
+    });
+    if(best >= 0) s.player = left.splice(best,1)[0];
+  }
+  return {slots, overflow:left};
+}
+
+function renderResultsBySport(draft, allPicks, teams, el){
+  if(!teams.length){ el.innerHTML='<div class="empty-state">No teams</div>'; return; }
+  if(draft.is_future){
+    el.innerHTML = '<div class="empty-state">'+draft.year+' hasn\'t been drafted yet — see the Draft Board tab for traded picks.</div>';
+    return;
+  }
+
+  const initMap = buildInitMap(teams);
+  const rosters = teams.map(()=>[]);
+
+  // Drafted picks, credited to whoever actually made the pick
+  for(const p of allPicks){
+    if(!p.player) continue;
+    const {drafterIdx, viaInitials} = resolvePickTeam(p, teams, initMap);
+    rosters[drafterIdx].push({
+      player: p.player, sport: p.sport, pos: p.pos,
+      round: p.round, pickNum: p.pickNum, keeper: false, via: viaInitials,
+    });
+  }
+  // Keepers sit in their own team's column
+  for(const row of (draft.keepers||[])){
+    for(let ti=0; ti<teams.length; ti++){
+      const k = row.picks[ti];
+      if(!k || !k.player) continue;
+      rosters[ti].push({
+        player: k.player, sport: k.sport || row.keeper_sport, pos: k.pos,
+        round: null, pickNum: null, keeper: true, via: null,
+      });
+    }
+  }
+
+  const hasPos = rosters.some(r => r.some(x => x.pos));
+  const sports = S.resultsSport === 'All' ? ['NFL','NBA','MLB'] : [S.resultsSport];
+
+  let html = '<div class="rbs-grid">';
+  for(let ti=0; ti<teams.length; ti++){
+    const t = teams[ti];
+    const mine = rosters[ti];
+    html += `<div class="rbs-team">
+      <div class="rbs-team-head">
+        <span style="width:10px;height:10px;border-radius:50%;background:${teamColor(ti)}"></span>
+        <span class="rbs-team-name">${esc(t.team)}</span>
+        <span class="rbs-team-owner">${esc(t.owner)}</span>
+        <span class="text-muted text-sm" style="margin-left:auto">${mine.length} players</span>
+      </div>
+      <div class="rbs-sports">`;
+
+    for(const sp of sports){
+      const players = mine.filter(x => x.sport === sp);
+      html += `<div class="rbs-sport">
+        <div class="rbs-sport-head ${sportClass(sp)}">${sp}<span class="rbs-count">${players.length}</span></div>`;
+
+      if(!players.length){
+        html += '<div class="rbs-empty">None</div>';
+      } else if(hasPos){
+        const {slots, overflow} = fillRosterSlots(sp, players);
+        for(const s of slots){
+          html += `<div class="rbs-row${s.player?'':' rbs-row-open'}">
+            <span class="rbs-slot">${s.slot}</span>
+            ${s.player ? rbsPlayer(s.player) : '<span class="rbs-open">— open —</span>'}
+          </div>`;
+        }
+        for(const p of overflow){
+          html += `<div class="rbs-row"><span class="rbs-slot rbs-slot-x">EXTRA</span>${rbsPlayer(p)}</div>`;
+        }
+      } else {
+        for(const p of players.sort((a,b)=>(a.pickNum||0)-(b.pickNum||0))){
+          html += `<div class="rbs-row"><span class="rbs-slot">&nbsp;</span>${rbsPlayer(p)}</div>`;
+        }
+      }
+      html += '</div>';
+    }
+    html += '</div></div>';
+  }
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+function rbsPlayer(p){
+  return `<span class="rbs-name">${esc(p.player)}</span>`
+    + `<span class="rbs-meta">${p.keeper ? '<b class="rbs-kpr">KPR</b>' : (p.round ? 'Rd '+p.round : '')}`
+    + `${p.via ? ' <b class="rbs-trd">\ud83d\udd04 '+esc(p.via)+'</b>' : ''}</span>`;
+}
+
+function setResultsSport(sp){
+  S.resultsSport = sp;
+  renderDraftResults();
 }
 
 function setResultsYear(yr){

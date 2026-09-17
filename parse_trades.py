@@ -3,11 +3,12 @@
 Parse League of Leagues trades CSV into structured JSON.
 
 The CSV has all 5 season blocks side-by-side, each 7 columns wide with a 1-col gap:
-  2025-26: cols 0-6  (A-G)
-  2024-25: cols 8-14 (I-O)
-  2023-24: cols 16-22 (Q-W)
-  2022-23: cols 24-30 (Y-AE)
-  2021-22: cols 32-38 (AG-AM)
+  2026-27: cols 0-6  (A-G)
+  2025-26: cols 8-14 (I-O)
+  2024-25: cols 16-22 (Q-W)
+  2023-24: cols 24-30 (Y-AE)
+  2022-23: cols 32-38 (AG-AM)
+  2021-22: cols 40-46 (AO-AU)
 
 Each trade spans exactly 2 rows:
   Row 1: [trade#, date, owner_a, team_a, players_a_sends, picks_a_sends, context]
@@ -17,16 +18,19 @@ Called two ways:
   1. Standalone:  python3 parse_trades.py  → reads rawTrades from data.js, prints JSON
   2. From update.py: parse_trades(csv_text) → pass freshly fetched CSV string directly
 """
-import csv, io, json, sys, re
+import csv, io, json, os, sys, re
 
-DATA_JS_PATH = '/sessions/fervent-serene-maxwell/mnt/League of Leagues/data.js'
+DATA_JS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data.js')
 
+# NOTE: a new season block is inserted at col 0 each year, shifting every older
+# block right by 8. Verified against the live sheet 2026-09-16.
 SEASON_BLOCKS = [
-    (0,  '2025-26'),
-    (8,  '2024-25'),
-    (16, '2023-24'),
-    (24, '2022-23'),
-    (32, '2021-22'),
+    (0,  '2026-27'),
+    (8,  '2025-26'),
+    (16, '2024-25'),
+    (24, '2023-24'),
+    (32, '2022-23'),
+    (40, '2021-22'),
 ]
 
 def clean(s):
