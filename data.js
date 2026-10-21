@@ -1,9 +1,9 @@
 // League of Leagues - Auto-generated data file
-// Updated: September 17, 2026 at 03:05 AM
+// Updated: October 21, 2026 at 03:56 AM
 // DO NOT EDIT - run sync_from_sheet.py to regenerate
 
 window.LIVE_DATA = {
- "updated": "2026-09-17T03:05:05.317488",
+ "updated": "2026-10-21T03:56:21.222870",
  "rawStandings": null,
  "rawTrades": null,
  "rawDrafts": {
@@ -20204,7 +20204,14 @@ window.LIVE_DATA = {
      "picks": [
       null,
       null,
-      null,
+      {
+       "player": null,
+       "sport": null,
+       "color": "FF9900",
+       "owned_by": "Thanos - Moses",
+       "is_traded": true,
+       "traded_to": "MJ"
+      },
       null,
       null,
       null,
@@ -20377,7 +20384,14 @@ window.LIVE_DATA = {
       null,
       null,
       null,
-      null,
+      {
+       "player": null,
+       "sport": null,
+       "color": "FF9900",
+       "owned_by": "Thanos - Moses",
+       "is_traded": true,
+       "traded_to": "MJ"
+      },
       null,
       {
        "player": null,
@@ -20401,7 +20415,14 @@ window.LIVE_DATA = {
      "picks": [
       null,
       null,
-      null,
+      {
+       "player": null,
+       "sport": null,
+       "color": "FF9900",
+       "owned_by": "Thanos - Moses",
+       "is_traded": true,
+       "traded_to": "MJ"
+      },
       null,
       null,
       null,
@@ -20701,7 +20722,14 @@ window.LIVE_DATA = {
       null,
       null,
       null,
-      null,
+      {
+       "player": null,
+       "sport": null,
+       "color": "FF9900",
+       "owned_by": "Blitz Zone - Weller",
+       "is_traded": true,
+       "traded_to": "AW"
+      },
       null,
       null,
       null
@@ -20719,7 +20747,14 @@ window.LIVE_DATA = {
       null,
       null,
       null,
-      null,
+      {
+       "player": null,
+       "sport": null,
+       "color": "FF9900",
+       "owned_by": "Blitz Zone - Weller",
+       "is_traded": true,
+       "traded_to": "AW"
+      },
       null,
       null,
       null
@@ -20744,7 +20779,14 @@ window.LIVE_DATA = {
       null,
       null,
       null,
-      null,
+      {
+       "player": null,
+       "sport": null,
+       "color": "FF9900",
+       "owned_by": "Champ - Crump",
+       "is_traded": true,
+       "traded_to": "CC"
+      },
       null,
       null,
       null
@@ -22382,7 +22424,7 @@ window.LIVE_DATA = {
    "sport": "NFL",
    "context": "2026 NFL",
    "side_a": {
-    "owner": "Moses",
+    "owner": "Moses Joseph",
     "team": "Thanos",
     "players": "Rashee Rice (NFL)",
     "picks": "28th Round"
@@ -22392,6 +22434,44 @@ window.LIVE_DATA = {
     "team": "1st and Inches",
     "players": "Jordan Addison (NFL)",
     "picks": "6th Round"
+   }
+  },
+  {
+   "num": 2,
+   "date": "10/9/2026",
+   "season": "2026-27",
+   "sport": "NFL",
+   "context": "2026 NFL",
+   "side_a": {
+    "owner": "Chris Crump",
+    "team": "CHAMP",
+    "players": "Bills Defense (NFL)",
+    "picks": "10th Round"
+   },
+   "side_b": {
+    "owner": "Moses Joseph",
+    "team": "Thanos",
+    "players": "Matthew Golden (NFL)",
+    "picks": "27th Round"
+   }
+  },
+  {
+   "num": 3,
+   "date": "10/13/2026",
+   "season": "2026-27",
+   "sport": "NFL",
+   "context": "2026 NFL",
+   "side_a": {
+    "owner": "Moses Joseph",
+    "team": "Thanos",
+    "players": "Karl-Anthony Towns (NBA)\nOllie Gordon (NFL)",
+    "picks": "25th Round\n26th Round"
+   },
+   "side_b": {
+    "owner": "Adam Weller",
+    "team": "Blitz Zone Adam",
+    "players": "Isaac Teslaa (NFL)",
+    "picks": "2nd Round\n11th Round"
    }
   },
   {
