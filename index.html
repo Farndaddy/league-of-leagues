@@ -614,7 +614,7 @@ const CONFIG = {
 
 const TEAM_COLORS = ['#6366f1','#06b6d4','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316','#84cc16','#3b82f6','#a855f7'];
 const TEAM_ALIASES = { fcc:'thanos', fccthanos:'thanos' };
-const seasonLabels = {2026:'2025-26 ▶',2025:'2024-25',2024:'2023-24',2023:'2022-23',2022:'2021-22'};
+const seasonLabels = {2026:'2025-26',2025:'2024-25',2024:'2023-24',2023:'2022-23',2022:'2021-22'};
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
 const S = {
@@ -988,7 +988,7 @@ function renderOvChamps(){
   el.innerHTML = cards.map(c=>{
     const top4 = ((S.allSeasonStandings[c.year]||{}).overall||[]).slice(0,4);
 
-    if(c.year===2026 || !c.overall){
+    if(!c.overall){
       const placesHtml = top4.map((r,i)=>`
         <div class="champ-place-row">
           <span class="champ-place-label" style="color:${placeColors[i]}">${placeLabels[i]}</span>
@@ -1031,7 +1031,7 @@ function renderCareerEarnings(){
   const data = S.careerEarnings.slice(0,12);
   if(!data.length){ el.innerHTML='<div class="empty-state">No data</div>'; return; }
   el.innerHTML = `<table>
-    <thead><tr><th>#</th><th>Owner</th><th>2021-22</th><th>2022-23</th><th>2023-24</th><th>2024-25</th><th>Total</th></tr></thead>
+    <thead><tr><th>#</th><th>Owner</th><th>2021-22</th><th>2022-23</th><th>2023-24</th><th>2024-25</th><th>2025-26</th><th>Total</th></tr></thead>
     <tbody>
     ${data.map((e,i)=>`<tr>
       <td>${rankBadge(i+1)}</td>
@@ -1040,6 +1040,7 @@ function renderCareerEarnings(){
       <td>${e.by_year['2023']?fmtMoney(e.by_year['2023']):'—'}</td>
       <td>${e.by_year['2024']?fmtMoney(e.by_year['2024']):'—'}</td>
       <td>${e.by_year['2025']?fmtMoney(e.by_year['2025']):'—'}</td>
+      <td>${e.by_year['2026']?fmtMoney(e.by_year['2026']):'—'}</td>
       <td><strong style="color:var(--green)">${fmtMoney(e.total)}</strong></td>
     </tr>`).join('')}
     </tbody>
