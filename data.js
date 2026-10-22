@@ -1,9 +1,9 @@
 // League of Leagues - Auto-generated data file
-// Updated: October 21, 2026 at 03:56 AM
+// Updated: October 22, 2026 at 10:29 PM
 // DO NOT EDIT - run sync_from_sheet.py to regenerate
 
 window.LIVE_DATA = {
- "updated": "2026-10-21T03:56:21.222870",
+ "updated": "2026-10-22T22:29:24.264797",
  "rawStandings": null,
  "rawTrades": null,
  "rawDrafts": {
@@ -8515,7 +8515,7 @@ window.LIVE_DATA = {
        "color": "EAD1DC"
       },
       {
-       "player": "Alperen Sengün",
+       "player": "Alperen Seng\u00fcn",
        "sport": "NBA",
        "color": "C9DAF8"
       },
@@ -14311,7 +14311,7 @@ window.LIVE_DATA = {
        "is_keeper": true
       },
       {
-       "player": "Nikola Vučević",
+       "player": "Nikola Vu\u010devi\u0107",
        "sport": "NBA",
        "color": "C9DAF8",
        "is_keeper": true
@@ -19743,7 +19743,7 @@ window.LIVE_DATA = {
       "color": "C9DAF8"
      },
      {
-      "player": "Nikola Vučević",
+      "player": "Nikola Vu\u010devi\u0107",
       "sport": null,
       "color": null
      },
@@ -20282,7 +20282,14 @@ window.LIVE_DATA = {
       },
       null,
       null,
-      null,
+      {
+       "player": null,
+       "sport": null,
+       "color": "FF9900",
+       "owned_by": "Thanos - Moses",
+       "is_traded": true,
+       "traded_to": "MJ"
+      },
       null,
       null,
       null,
@@ -20661,7 +20668,14 @@ window.LIVE_DATA = {
       null,
       null,
       null,
-      null,
+      {
+       "player": null,
+       "sport": null,
+       "color": "FF9900",
+       "owned_by": "1st and Inches - Ted",
+       "is_traded": true,
+       "traded_to": "TC"
+      },
       null,
       null,
       null
@@ -22495,6 +22509,25 @@ window.LIVE_DATA = {
     "team": "Blitz Zone Adam",
     "players": "Isaac Teslaa (NFL)",
     "picks": "2nd Round\n11th Round"
+   }
+  },
+  {
+   "num": 4,
+   "date": "10/22/2026",
+   "season": "2026-27",
+   "sport": "NBA",
+   "context": "2026-27 NBA",
+   "side_a": {
+    "owner": "Moses Joseph",
+    "team": "Thanos",
+    "players": "Bam Adebayo (NBA)",
+    "picks": "22nd Round"
+   },
+   "side_b": {
+    "owner": "Ted Cato",
+    "team": "1st and Inches",
+    "players": "John Collins (NBA)\nJordyn Tyson (NFL)",
+    "picks": "5th Round"
    }
   },
   {
@@ -28976,7 +29009,7 @@ window.LIVE_DATA = {
      ]
     },
     {
-     "team": "THANOS 🫰🏿",
+     "team": "THANOS \ud83e\udef0\ud83c\udfff",
      "players": [
       {
        "pos": "QB",
@@ -30020,7 +30053,7 @@ window.LIVE_DATA = {
      ]
     },
     {
-     "team": "THANOS 🫰🏿",
+     "team": "THANOS \ud83e\udef0\ud83c\udfff",
      "players": [
       {
        "pos": "QB",
@@ -30837,7 +30870,7 @@ window.LIVE_DATA = {
      ]
     },
     {
-     "team": "THANOS 🫰🏿",
+     "team": "THANOS \ud83e\udef0\ud83c\udfff",
      "players": [
       {
        "pos": "QB",
@@ -31231,7 +31264,7 @@ window.LIVE_DATA = {
        "pos": "BN",
        "player": "Tetairoa McMillan",
        "trd": true,
-       "from": "THANOS 🫰🏿",
+       "from": "THANOS \ud83e\udef0\ud83c\udfff",
        "trade": 39
       }
      ]
@@ -31249,7 +31282,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "SG",
-       "player": "Dennis Schröder"
+       "player": "Dennis Schr\u00f6der"
       },
       {
        "pos": "G",
@@ -31354,7 +31387,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "G",
-       "player": "Bogdan Bogdanović"
+       "player": "Bogdan Bogdanovi\u0107"
       },
       {
        "pos": "G",
@@ -31402,7 +31435,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "BN",
-       "player": "Kasparas Jakučionis"
+       "player": "Kasparas Jaku\u010dionis"
       },
       {
        "pos": "BN",
@@ -31510,7 +31543,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "BN",
-       "player": "Jonas Valančiūnas"
+       "player": "Jonas Valan\u010di\u016bnas"
       },
       {
        "pos": "BN",
@@ -31616,7 +31649,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "BN",
-       "player": "Luka Dončić"
+       "player": "Luka Don\u010di\u0107"
       },
       {
        "pos": "BN",
@@ -31789,7 +31822,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "C",
-       "player": "Nikola Jokić"
+       "player": "Nikola Joki\u0107"
       },
       {
        "pos": "C",
@@ -31801,7 +31834,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "Util",
-       "player": "Hugo González"
+       "player": "Hugo Gonz\u00e1lez"
       },
       {
        "pos": "Util",
@@ -31880,7 +31913,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "F",
-       "player": "Vít Krejčí"
+       "player": "V\u00edt Krej\u010d\u00ed"
       },
       {
        "pos": "C",
@@ -31953,7 +31986,7 @@ window.LIVE_DATA = {
      ]
     },
     {
-     "team": "THANOS 🫰🏿",
+     "team": "THANOS \ud83e\udef0\ud83c\udfff",
      "players": [
       {
        "pos": "PG",
@@ -32041,7 +32074,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "IL",
-       "player": "Nikola Vučević",
+       "player": "Nikola Vu\u010devi\u0107",
        "kpr": true
       },
       {
@@ -32058,7 +32091,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "IL+",
-       "player": "Alperen Şengün",
+       "player": "Alperen \u015eeng\u00fcn",
        "kpr": true
       }
      ]
@@ -32404,7 +32437,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "F",
-       "player": "Kristaps Porziņģis"
+       "player": "Kristaps Porzi\u0146\u0123is"
       },
       {
        "pos": "C",
@@ -32433,7 +32466,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "Util",
-       "player": "Moussa Diabaté"
+       "player": "Moussa Diabat\u00e9"
       },
       {
        "pos": "Util",
@@ -32472,7 +32505,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "IL+",
-       "player": "Jusuf Nurkić"
+       "player": "Jusuf Nurki\u0107"
       },
       {
        "pos": "IL+",
@@ -32527,7 +32560,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "Util",
-       "player": "Nikola Vučević"
+       "player": "Nikola Vu\u010devi\u0107"
       },
       {
        "pos": "Util",
@@ -32647,7 +32680,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "BN",
-       "player": "Moussa Diabaté"
+       "player": "Moussa Diabat\u00e9"
       },
       {
        "pos": "BN",
@@ -32720,7 +32753,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "C",
-       "player": "Jusuf Nurkić"
+       "player": "Jusuf Nurki\u0107"
       },
       {
        "pos": "C",
@@ -32777,7 +32810,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "SG",
-       "player": "Dennis Schröder"
+       "player": "Dennis Schr\u00f6der"
       },
       {
        "pos": "G",
@@ -32817,7 +32850,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "Util",
-       "player": "Bogdan Bogdanović"
+       "player": "Bogdan Bogdanovi\u0107"
       },
       {
        "pos": "Util",
@@ -32942,7 +32975,7 @@ window.LIVE_DATA = {
      ]
     },
     {
-     "team": "THANOS 🫰🏿",
+     "team": "THANOS \ud83e\udef0\ud83c\udfff",
      "players": [
       {
        "pos": "PG",
@@ -32978,7 +33011,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "C",
-       "player": "Nikola Jokić"
+       "player": "Nikola Joki\u0107"
       },
       {
        "pos": "C",
@@ -33065,7 +33098,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "C",
-       "player": "Karlo Matković"
+       "player": "Karlo Matkovi\u0107"
       },
       {
        "pos": "C",
@@ -33155,7 +33188,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "C",
-       "player": "Kristaps Porziņģis"
+       "player": "Kristaps Porzi\u0146\u0123is"
       },
       {
        "pos": "Util",
@@ -33354,7 +33387,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "BN",
-       "player": "Luka Dončić"
+       "player": "Luka Don\u010di\u0107"
       },
       {
        "pos": "BN",
@@ -33516,7 +33549,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "Util",
-       "player": "Ömer Yurtseven"
+       "player": "\u00d6mer Yurtseven"
       },
       {
        "pos": "Util",
@@ -33541,7 +33574,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "BN",
-       "player": "Nikola Jokić"
+       "player": "Nikola Joki\u0107"
       }
      ]
     },
@@ -33651,7 +33684,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "G",
-       "player": "Bogdan Bogdanović"
+       "player": "Bogdan Bogdanovi\u0107"
       },
       {
        "pos": "SF",
@@ -33660,7 +33693,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "PF",
-       "player": "Kristaps Porziņģis"
+       "player": "Kristaps Porzi\u0146\u0123is"
       },
       {
        "pos": "F",
@@ -33668,7 +33701,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "F",
-       "player": "Bojan Bogdanović"
+       "player": "Bojan Bogdanovi\u0107"
       },
       {
        "pos": "C",
@@ -33676,7 +33709,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "C",
-       "player": "Jonas Valančiūnas"
+       "player": "Jonas Valan\u010di\u016bnas"
       },
       {
        "pos": "Util",
@@ -33688,7 +33721,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "Util",
-       "player": "Dāvis Bertāns"
+       "player": "D\u0101vis Bert\u0101ns"
       },
       {
        "pos": "Util",
@@ -33696,7 +33729,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "Util",
-       "player": "Jusuf Nurkić"
+       "player": "Jusuf Nurki\u0107"
       },
       {
        "pos": "Util",
@@ -33777,7 +33810,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "Util",
-       "player": "Luka Dončić"
+       "player": "Luka Don\u010di\u0107"
       },
       {
        "pos": "Util",
@@ -33844,11 +33877,11 @@ window.LIVE_DATA = {
       },
       {
        "pos": "C",
-       "player": "Nikola Jović"
+       "player": "Nikola Jovi\u0107"
       },
       {
        "pos": "C",
-       "player": "Nikola Vučević"
+       "player": "Nikola Vu\u010devi\u0107"
       },
       {
        "pos": "Util",
@@ -34032,7 +34065,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "Util",
-       "player": "Vasilije Micić"
+       "player": "Vasilije Mici\u0107"
       },
       {
        "pos": "Util",
@@ -34308,15 +34341,15 @@ window.LIVE_DATA = {
       },
       {
        "pos": "Util",
-       "player": "Jonas Valančiūnas"
+       "player": "Jonas Valan\u010di\u016bnas"
       },
       {
        "pos": "Util",
-       "player": "Nikola Vučević"
+       "player": "Nikola Vu\u010devi\u0107"
       },
       {
        "pos": "Util",
-       "player": "Nikola Jokić"
+       "player": "Nikola Joki\u0107"
       },
       {
        "pos": "BN",
@@ -34413,7 +34446,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "BN",
-       "player": "Kristaps Porziņģis"
+       "player": "Kristaps Porzi\u0146\u0123is"
       },
       {
        "pos": "BN",
@@ -34471,7 +34504,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "C",
-       "player": "Jusuf Nurkić"
+       "player": "Jusuf Nurki\u0107"
       },
       {
        "pos": "C",
@@ -34663,7 +34696,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "Util",
-       "player": "Théo Maledon"
+       "player": "Th\u00e9o Maledon"
       },
       {
        "pos": "Util",
@@ -34934,11 +34967,11 @@ window.LIVE_DATA = {
       },
       {
        "pos": "Util",
-       "player": "Dennis Schröder"
+       "player": "Dennis Schr\u00f6der"
       },
       {
        "pos": "Util",
-       "player": "Bogdan Bogdanović"
+       "player": "Bogdan Bogdanovi\u0107"
       },
       {
        "pos": "Util",
@@ -35218,11 +35251,11 @@ window.LIVE_DATA = {
       },
       {
        "pos": "BN",
-       "player": "Nikola Jokić"
+       "player": "Nikola Joki\u0107"
       },
       {
        "pos": "BN",
-       "player": "Nikola Vučević"
+       "player": "Nikola Vu\u010devi\u0107"
       },
       {
        "pos": "BN",
@@ -35360,7 +35393,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "C",
-       "player": "Willy Hernangómez"
+       "player": "Willy Hernang\u00f3mez"
       },
       {
        "pos": "Util",
@@ -35372,7 +35405,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "Util",
-       "player": "Dāvis Bertāns"
+       "player": "D\u0101vis Bert\u0101ns"
       },
       {
        "pos": "Util",
@@ -35409,11 +35442,11 @@ window.LIVE_DATA = {
      "players": [
       {
        "pos": "PG",
-       "player": "Vít Krejčí"
+       "player": "V\u00edt Krej\u010d\u00ed"
       },
       {
        "pos": "SG",
-       "player": "Luka Dončić"
+       "player": "Luka Don\u010di\u0107"
       },
       {
        "pos": "G",
@@ -35502,7 +35535,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "G",
-       "player": "Monté Morris"
+       "player": "Mont\u00e9 Morris"
       },
       {
        "pos": "G",
@@ -35558,7 +35591,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "BN",
-       "player": "Jonas Valančiūnas"
+       "player": "Jonas Valan\u010di\u016bnas"
       },
       {
        "pos": "BN",
@@ -35672,7 +35705,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "G",
-       "player": "Théo Maledon"
+       "player": "Th\u00e9o Maledon"
       },
       {
        "pos": "G",
@@ -35769,7 +35802,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "PF",
-       "player": "Aleksej Pokuševski"
+       "player": "Aleksej Poku\u0161evski"
       },
       {
        "pos": "F",
@@ -36003,7 +36036,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "BN",
-       "player": "Bogdan Bogdanović"
+       "player": "Bogdan Bogdanovi\u0107"
       },
       {
        "pos": "BN",
@@ -36041,7 +36074,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "3B",
-       "player": "Eugenio Suárez"
+       "player": "Eugenio Su\u00e1rez"
       },
       {
        "pos": "SS",
@@ -36113,7 +36146,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "BN",
-       "player": "Cristopher Sánchez"
+       "player": "Cristopher S\u00e1nchez"
       },
       {
        "pos": "BN",
@@ -36171,11 +36204,11 @@ window.LIVE_DATA = {
       },
       {
        "pos": "SP",
-       "player": "Carlos Rodón"
+       "player": "Carlos Rod\u00f3n"
       },
       {
        "pos": "RP",
-       "player": "Emilio Pagán"
+       "player": "Emilio Pag\u00e1n"
       },
       {
        "pos": "P",
@@ -36236,7 +36269,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "OF",
-       "player": "Ramón Laureano"
+       "player": "Ram\u00f3n Laureano"
       },
       {
        "pos": "OF",
@@ -36260,7 +36293,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "P",
-       "player": "Carlos Estévez"
+       "player": "Carlos Est\u00e9vez"
       },
       {
        "pos": "P",
@@ -36337,7 +36370,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "Util",
-       "player": "Yandy Díaz"
+       "player": "Yandy D\u00edaz"
       },
       {
        "pos": "SP",
@@ -36365,7 +36398,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "P",
-       "player": "Jesús Luzardo"
+       "player": "Jes\u00fas Luzardo"
       },
       {
        "pos": "P",
@@ -36411,7 +36444,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "OF",
-       "player": "Teoscar Hernández"
+       "player": "Teoscar Hern\u00e1ndez"
       },
       {
        "pos": "OF",
@@ -36444,7 +36477,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "P",
-       "player": "Edwin Díaz"
+       "player": "Edwin D\u00edaz"
       },
       {
        "pos": "P",
@@ -36512,7 +36545,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "SP",
-       "player": "Pablo López"
+       "player": "Pablo L\u00f3pez"
       },
       {
        "pos": "RP",
@@ -36582,7 +36615,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "SS",
-       "player": "José Caballero"
+       "player": "Jos\u00e9 Caballero"
       },
       {
        "pos": "OF",
@@ -36598,7 +36631,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "OF",
-       "player": "Ronald Acuña Jr."
+       "player": "Ronald Acu\u00f1a Jr."
       },
       {
        "pos": "Util",
@@ -36610,7 +36643,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "RP",
-       "player": "Andrés Muñoz"
+       "player": "Andr\u00e9s Mu\u00f1oz"
       },
       {
        "pos": "P",
@@ -36668,7 +36701,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "3B",
-       "player": "José Ramírez"
+       "player": "Jos\u00e9 Ram\u00edrez"
       },
       {
        "pos": "SS",
@@ -36879,7 +36912,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "Util",
-       "player": "Julio Rodríguez"
+       "player": "Julio Rodr\u00edguez"
       },
       {
        "pos": "SP",
@@ -36983,7 +37016,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "P",
-       "player": "Carlos Rodón"
+       "player": "Carlos Rod\u00f3n"
       },
       {
        "pos": "P",
@@ -37089,7 +37122,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "P",
-       "player": "Cristopher Sánchez"
+       "player": "Cristopher S\u00e1nchez"
       },
       {
        "pos": "P",
@@ -37126,7 +37159,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "1B",
-       "player": "Yandy Díaz"
+       "player": "Yandy D\u00edaz"
       },
       {
        "pos": "2B",
@@ -37171,7 +37204,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "P",
-       "player": "José Berríos"
+       "player": "Jos\u00e9 Berr\u00edos"
       },
       {
        "pos": "P",
@@ -37288,7 +37321,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "P",
-       "player": "Alexis Díaz"
+       "player": "Alexis D\u00edaz"
       },
       {
        "pos": "BN",
@@ -37355,7 +37388,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "P",
-       "player": "Carlos Estévez"
+       "player": "Carlos Est\u00e9vez"
       },
       {
        "pos": "P",
@@ -37472,7 +37505,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "P",
-       "player": "Martín Pérez"
+       "player": "Mart\u00edn P\u00e9rez"
       },
       {
        "pos": "BN",
@@ -37497,7 +37530,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "3B",
-       "player": "José Ramírez"
+       "player": "Jos\u00e9 Ram\u00edrez"
       },
       {
        "pos": "SS",
@@ -37607,7 +37640,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "OF",
-       "player": "Adolis García"
+       "player": "Adolis Garc\u00eda"
       },
       {
        "pos": "OF",
@@ -37631,7 +37664,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "P",
-       "player": "Seranthony Domínguez"
+       "player": "Seranthony Dom\u00ednguez"
       },
       {
        "pos": "P",
@@ -37639,7 +37672,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "P",
-       "player": "Edwin Díaz"
+       "player": "Edwin D\u00edaz"
       },
       {
        "pos": "P",
@@ -37791,11 +37824,11 @@ window.LIVE_DATA = {
       },
       {
        "pos": "OF",
-       "player": "Teoscar Hernández"
+       "player": "Teoscar Hern\u00e1ndez"
       },
       {
        "pos": "OF",
-       "player": "Julio Rodríguez"
+       "player": "Julio Rodr\u00edguez"
       },
       {
        "pos": "Util",
@@ -37827,11 +37860,11 @@ window.LIVE_DATA = {
       },
       {
        "pos": "P",
-       "player": "Andrés Muñoz"
+       "player": "Andr\u00e9s Mu\u00f1oz"
       },
       {
        "pos": "P",
-       "player": "Pablo López"
+       "player": "Pablo L\u00f3pez"
       },
       {
        "pos": "P",
@@ -37884,7 +37917,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "OF",
-       "player": "Ronald Acuña Jr."
+       "player": "Ronald Acu\u00f1a Jr."
       },
       {
        "pos": "OF",
@@ -37908,7 +37941,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "P",
-       "player": "José Alvarado"
+       "player": "Jos\u00e9 Alvarado"
       },
       {
        "pos": "P",
@@ -37992,7 +38025,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "OF",
-       "player": "Julio Rodríguez"
+       "player": "Julio Rodr\u00edguez"
       },
       {
        "pos": "Util",
@@ -38009,7 +38042,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "P",
-       "player": "Alexis Díaz"
+       "player": "Alexis D\u00edaz"
       },
       {
        "pos": "P",
@@ -38049,7 +38082,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "BN",
-       "player": "Pablo López"
+       "player": "Pablo L\u00f3pez"
       },
       {
        "pos": "BN",
@@ -38144,7 +38177,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "BN",
-       "player": "Eury Pérez"
+       "player": "Eury P\u00e9rez"
       },
       {
        "pos": "BN",
@@ -38227,7 +38260,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "P",
-       "player": "Carlos Estévez"
+       "player": "Carlos Est\u00e9vez"
       },
       {
        "pos": "P",
@@ -38284,7 +38317,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "Util",
-       "player": "Teoscar Hernández"
+       "player": "Teoscar Hern\u00e1ndez"
       },
       {
        "pos": "SP",
@@ -38304,7 +38337,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "P",
-       "player": "José Berríos"
+       "player": "Jos\u00e9 Berr\u00edos"
       },
       {
        "pos": "P",
@@ -38381,7 +38414,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "Util",
-       "player": "Yandy Díaz"
+       "player": "Yandy D\u00edaz"
       },
       {
        "pos": "SP",
@@ -38463,7 +38496,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "OF",
-       "player": "Adolis García"
+       "player": "Adolis Garc\u00eda"
       },
       {
        "pos": "OF",
@@ -38573,7 +38606,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "SP",
-       "player": "Jesús Luzardo"
+       "player": "Jes\u00fas Luzardo"
       },
       {
        "pos": "RP",
@@ -38734,7 +38767,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "OF",
-       "player": "Eloy Jiménez"
+       "player": "Eloy Jim\u00e9nez"
       },
       {
        "pos": "OF",
@@ -38830,15 +38863,15 @@ window.LIVE_DATA = {
       },
       {
        "pos": "3B",
-       "player": "José Ramírez"
+       "player": "Jos\u00e9 Ram\u00edrez"
       },
       {
        "pos": "SS",
-       "player": "Luis Urías"
+       "player": "Luis Ur\u00edas"
       },
       {
        "pos": "OF",
-       "player": "Ronald Acuña Jr."
+       "player": "Ronald Acu\u00f1a Jr."
       },
       {
        "pos": "OF",
@@ -38959,7 +38992,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "SS",
-       "player": "Andrés Giménez"
+       "player": "Andr\u00e9s Gim\u00e9nez"
       },
       {
        "pos": "OF",
@@ -38967,15 +39000,15 @@ window.LIVE_DATA = {
       },
       {
        "pos": "OF",
-       "player": "Adolis García"
+       "player": "Adolis Garc\u00eda"
       },
       {
        "pos": "OF",
-       "player": "Julio Rodríguez"
+       "player": "Julio Rodr\u00edguez"
       },
       {
        "pos": "OF",
-       "player": "Oscar González"
+       "player": "Oscar Gonz\u00e1lez"
       },
       {
        "pos": "Util",
@@ -38987,7 +39020,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "RP",
-       "player": "Andrés Muñoz"
+       "player": "Andr\u00e9s Mu\u00f1oz"
       },
       {
        "pos": "P",
@@ -38995,11 +39028,11 @@ window.LIVE_DATA = {
       },
       {
        "pos": "P",
-       "player": "José Alvarado"
+       "player": "Jos\u00e9 Alvarado"
       },
       {
        "pos": "P",
-       "player": "Julio Urías"
+       "player": "Julio Ur\u00edas"
       },
       {
        "pos": "P",
@@ -39076,7 +39109,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "RP",
-       "player": "Félix Bautista"
+       "player": "F\u00e9lix Bautista"
       },
       {
        "pos": "P",
@@ -39161,7 +39194,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "RP",
-       "player": "Edwin Díaz"
+       "player": "Edwin D\u00edaz"
       },
       {
        "pos": "P",
@@ -39209,7 +39242,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "BN",
-       "player": "Carlos Rodón"
+       "player": "Carlos Rod\u00f3n"
       },
       {
        "pos": "BN",
@@ -39254,7 +39287,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "OF",
-       "player": "Teoscar Hernández"
+       "player": "Teoscar Hern\u00e1ndez"
       },
       {
        "pos": "Util",
@@ -39319,7 +39352,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "1B",
-       "player": "José Abreu"
+       "player": "Jos\u00e9 Abreu"
       },
       {
        "pos": "2B",
@@ -39383,7 +39416,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "P",
-       "player": "Martín Pérez"
+       "player": "Mart\u00edn P\u00e9rez"
       },
       {
        "pos": "P",
@@ -39416,7 +39449,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "3B",
-       "player": "Eugenio Suárez"
+       "player": "Eugenio Su\u00e1rez"
       },
       {
        "pos": "SS",
@@ -39448,7 +39481,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "RP",
-       "player": "Jesús Luzardo"
+       "player": "Jes\u00fas Luzardo"
       },
       {
        "pos": "P",
@@ -39497,7 +39530,7 @@ window.LIVE_DATA = {
      "players": [
       {
        "pos": "C",
-       "player": "Christian Vázquez"
+       "player": "Christian V\u00e1zquez"
       },
       {
        "pos": "1B",
@@ -39505,11 +39538,11 @@ window.LIVE_DATA = {
       },
       {
        "pos": "2B",
-       "player": "Javier Báez"
+       "player": "Javier B\u00e1ez"
       },
       {
        "pos": "3B",
-       "player": "Yoán Moncada"
+       "player": "Yo\u00e1n Moncada"
       },
       {
        "pos": "SS",
@@ -39577,7 +39610,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "BN",
-       "player": "Pablo López"
+       "player": "Pablo L\u00f3pez"
       }
      ]
     },
@@ -39642,7 +39675,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "P",
-       "player": "Jorge López"
+       "player": "Jorge L\u00f3pez"
       },
       {
        "pos": "P",
@@ -39695,7 +39728,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "SS",
-       "player": "Ramón Urías"
+       "player": "Ram\u00f3n Ur\u00edas"
       },
       {
        "pos": "OF",
@@ -39739,7 +39772,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "P",
-       "player": "Luis Patiño"
+       "player": "Luis Pati\u00f1o"
       },
       {
        "pos": "P",
@@ -39767,7 +39800,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "BN",
-       "player": "José Berríos"
+       "player": "Jos\u00e9 Berr\u00edos"
       }
      ]
     }
@@ -39972,7 +40005,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "P",
-       "player": "Carlos Rodón",
+       "player": "Carlos Rod\u00f3n",
        "kpr": true
       },
       {
@@ -40011,7 +40044,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "SS",
-       "player": "Andrés Giménez"
+       "player": "Andr\u00e9s Gim\u00e9nez"
       },
       {
        "pos": "CI",
@@ -40043,7 +40076,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "SP",
-       "player": "Yoendrys Gómez"
+       "player": "Yoendrys G\u00f3mez"
       },
       {
        "pos": "RP",
@@ -40141,11 +40174,11 @@ window.LIVE_DATA = {
       },
       {
        "pos": "OF",
-       "player": "Ronald Acuña Jr."
+       "player": "Ronald Acu\u00f1a Jr."
       },
       {
        "pos": "OF",
-       "player": "Teoscar Hernández"
+       "player": "Teoscar Hern\u00e1ndez"
       },
       {
        "pos": "OF",
@@ -40232,7 +40265,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "2B",
-       "player": "Angel Martínez"
+       "player": "Angel Mart\u00ednez"
       },
       {
        "pos": "3B",
@@ -40319,7 +40352,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "IL",
-       "player": "Edwin Díaz"
+       "player": "Edwin D\u00edaz"
       },
       {
        "pos": "IL",
@@ -40345,7 +40378,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "3B",
-       "player": "Eugenio Suárez"
+       "player": "Eugenio Su\u00e1rez"
       },
       {
        "pos": "SS",
@@ -40366,7 +40399,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "OF",
-       "player": "Julio Rodríguez"
+       "player": "Julio Rodr\u00edguez"
       },
       {
        "pos": "OF",
@@ -40391,7 +40424,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "P",
-       "player": "Andrés Muñoz"
+       "player": "Andr\u00e9s Mu\u00f1oz"
       },
       {
        "pos": "P",
@@ -40435,7 +40468,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "IL",
-       "player": "Carlos Estévez"
+       "player": "Carlos Est\u00e9vez"
       }
      ]
     },
@@ -40448,7 +40481,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "1B",
-       "player": "Yandy Díaz"
+       "player": "Yandy D\u00edaz"
       },
       {
        "pos": "2B",
@@ -40470,7 +40503,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "MI",
-       "player": "Luis García Jr."
+       "player": "Luis Garc\u00eda Jr."
       },
       {
        "pos": "OF",
@@ -40608,7 +40641,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "SP",
-       "player": "Walbert Ureña"
+       "player": "Walbert Ure\u00f1a"
       },
       {
        "pos": "RP",
@@ -40756,7 +40789,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "BN",
-       "player": "Cristopher Sánchez"
+       "player": "Cristopher S\u00e1nchez"
       },
       {
        "pos": "BN",
@@ -40844,11 +40877,11 @@ window.LIVE_DATA = {
       },
       {
        "pos": "Util",
-       "player": "Jeremy Peña"
+       "player": "Jeremy Pe\u00f1a"
       },
       {
        "pos": "SP",
-       "player": "Jesús Luzardo"
+       "player": "Jes\u00fas Luzardo"
       },
       {
        "pos": "RP",
@@ -40882,7 +40915,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "BN",
-       "player": "Joshua Báez"
+       "player": "Joshua B\u00e1ez"
       },
       {
        "pos": "BN",
@@ -40947,7 +40980,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "SP",
-       "player": "José Soriano"
+       "player": "Jos\u00e9 Soriano"
       },
       {
        "pos": "RP",
@@ -40955,7 +40988,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "P",
-       "player": "Eury Pérez"
+       "player": "Eury P\u00e9rez"
       },
       {
        "pos": "P",
@@ -41034,11 +41067,11 @@ window.LIVE_DATA = {
       },
       {
        "pos": "CI",
-       "player": "José Ramírez"
+       "player": "Jos\u00e9 Ram\u00edrez"
       },
       {
        "pos": "MI",
-       "player": "Nasim Nuñez"
+       "player": "Nasim Nu\u00f1ez"
       },
       {
        "pos": "OF",
@@ -41066,7 +41099,7 @@ window.LIVE_DATA = {
       },
       {
        "pos": "RP",
-       "player": "Seranthony Domínguez"
+       "player": "Seranthony Dom\u00ednguez"
       },
       {
        "pos": "P",
