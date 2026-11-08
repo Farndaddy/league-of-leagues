@@ -1,9 +1,9 @@
 // League of Leagues - Auto-generated data file
-// Updated: October 22, 2026 at 10:29 PM
+// Updated: November 08, 2026 at 12:30 AM
 // DO NOT EDIT - run sync_from_sheet.py to regenerate
 
 window.LIVE_DATA = {
- "updated": "2026-10-22T22:29:24.264797",
+ "updated": "2026-11-08T00:30:39.263042",
  "rawStandings": null,
  "rawTrades": null,
  "rawDrafts": {
@@ -20227,7 +20227,14 @@ window.LIVE_DATA = {
      "round": 3,
      "dir": "--->",
      "picks": [
-      null,
+      {
+       "player": null,
+       "sport": null,
+       "color": "FF9900",
+       "owned_by": "Eminent Domain - De*",
+       "is_traded": true,
+       "traded_to": "De"
+      },
       null,
       {
        "player": null,
@@ -20305,7 +20312,14 @@ window.LIVE_DATA = {
       null,
       null,
       null,
-      null,
+      {
+       "player": null,
+       "sport": null,
+       "color": "FF9900",
+       "owned_by": "Eminent Domain - De",
+       "is_traded": true,
+       "traded_to": "De"
+      },
       null,
       {
        "player": null,
@@ -20327,7 +20341,14 @@ window.LIVE_DATA = {
      "round": 7,
      "dir": "--->",
      "picks": [
-      null,
+      {
+       "player": null,
+       "sport": null,
+       "color": "FF9900",
+       "owned_by": "Eminent Domain - De",
+       "is_traded": true,
+       "traded_to": "De"
+      },
       null,
       null,
       null,
@@ -20356,7 +20377,14 @@ window.LIVE_DATA = {
        "traded_to": "JL"
       },
       null,
-      null,
+      {
+       "player": null,
+       "sport": null,
+       "color": "FF9900",
+       "owned_by": "Thanos - Moses",
+       "is_traded": true,
+       "traded_to": "MJ"
+      },
       null,
       null,
       null,
@@ -20399,7 +20427,14 @@ window.LIVE_DATA = {
        "is_traded": true,
        "traded_to": "MJ"
       },
-      null,
+      {
+       "player": null,
+       "sport": null,
+       "color": "FF9900",
+       "owned_by": "Thanos - Moses",
+       "is_traded": true,
+       "traded_to": "MJ"
+      },
       {
        "player": null,
        "sport": null,
@@ -20493,7 +20528,14 @@ window.LIVE_DATA = {
       },
       null,
       null,
-      null,
+      {
+       "player": null,
+       "sport": null,
+       "color": "FF9900",
+       "owned_by": "Thanos - Moses",
+       "is_traded": true,
+       "traded_to": "MJ"
+      },
       null,
       null,
       null,
@@ -20575,7 +20617,14 @@ window.LIVE_DATA = {
       null,
       null,
       null,
-      null,
+      {
+       "player": null,
+       "sport": null,
+       "color": "FF9900",
+       "owned_by": "Triple Threat - Farnia",
+       "is_traded": true,
+       "traded_to": "FG"
+      },
       null,
       null,
       null
@@ -20643,7 +20692,14 @@ window.LIVE_DATA = {
       null,
       null,
       null,
-      null,
+      {
+       "player": null,
+       "sport": null,
+       "color": "FF9900",
+       "owned_by": "Triple Threat - Farnia",
+       "is_traded": true,
+       "traded_to": "FG"
+      },
       null,
       null,
       null
@@ -20828,7 +20884,14 @@ window.LIVE_DATA = {
       },
       null,
       null,
-      null
+      {
+       "player": null,
+       "sport": null,
+       "color": "FF9900",
+       "owned_by": "Champ - Crump",
+       "is_traded": true,
+       "traded_to": "CC"
+      }
      ]
     },
     {
@@ -20860,7 +20923,14 @@ window.LIVE_DATA = {
       },
       null,
       null,
-      null
+      {
+       "player": null,
+       "sport": null,
+       "color": "FF9900",
+       "owned_by": "Turbo Team - Jon",
+       "is_traded": true,
+       "traded_to": "JL"
+      }
      ]
     },
     {
@@ -20892,7 +20962,14 @@ window.LIVE_DATA = {
       },
       null,
       null,
-      null
+      {
+       "player": null,
+       "sport": null,
+       "color": "FF9900",
+       "owned_by": "Turbo Team - Jon",
+       "is_traded": true,
+       "traded_to": "JL"
+      }
      ]
     }
    ],
@@ -22528,6 +22605,82 @@ window.LIVE_DATA = {
     "team": "1st and Inches",
     "players": "John Collins (NBA)\nJordyn Tyson (NFL)",
     "picks": "5th Round"
+   }
+  },
+  {
+   "num": 5,
+   "date": "10/27/2026",
+   "season": "2026-27",
+   "sport": "NBA",
+   "context": "2026-27 NBA",
+   "side_a": {
+    "owner": "Moses Joseph",
+    "team": "Thanos",
+    "players": "Luther Burden (NFL)\nStephon Castle (NBA)",
+    "picks": "18th Round\n21st Round"
+   },
+   "side_b": {
+    "owner": "Farnia Ghavami",
+    "team": "Triple Threat Sports",
+    "players": "Jahan Dotson (NFL)\nKentavious Caldwell-Pope (NBA)",
+    "picks": "8th Round\n10th Round"
+   }
+  },
+  {
+   "num": 6,
+   "date": "11/4/2026",
+   "season": "2026-27",
+   "sport": "NBA",
+   "context": "2026-27 NBA",
+   "side_a": {
+    "owner": "De Smith",
+    "team": "Eminent Domain",
+    "players": "Victor Wembanyama (NBA)",
+    "picks": "29th Round\n30th Round"
+   },
+   "side_b": {
+    "owner": "Jon Love",
+    "team": "Turbo Team",
+    "players": "Sidy Cissoko (NBA)",
+    "picks": "3rd Round *Condition: earliest TT 3rd\n7th Round"
+   }
+  },
+  {
+   "num": 7,
+   "date": "11/5/2026",
+   "season": "2026-27",
+   "sport": "NFL",
+   "context": "2026 NFL",
+   "side_a": {
+    "owner": "De Smith",
+    "team": "Eminent Domain",
+    "players": "Derrick Henry (NFL)",
+    "picks": "28th Round"
+   },
+   "side_b": {
+    "owner": "Chris Crump",
+    "team": "CHAMP",
+    "players": "Jamien Sherwood (NFL)",
+    "picks": "6th Round"
+   }
+  },
+  {
+   "num": 8,
+   "date": "11/6/2026",
+   "season": "2026-27",
+   "sport": "NBA",
+   "context": "2026-27 NBA",
+   "side_a": {
+    "owner": "Moses Joseph",
+    "team": "Thanos",
+    "players": "Kyshawn George (NBA)",
+    "picks": "24th Round"
+   },
+   "side_b": {
+    "owner": "Ted Cato",
+    "team": "1st and Inches",
+    "players": "Tobias Harris (NBA)",
+    "picks": "14th Round"
    }
   },
   {
