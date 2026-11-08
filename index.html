@@ -934,10 +934,9 @@ function renderOvStandings(){
 
 function renderOvTrades(){
   const el = document.getElementById('ov-trades');
-  const seasonOrder = {'2025-26':0,'2024-25':1,'2023-24':2,'2022-23':3,'2021-22':4};
   const recent = [...S.trades]
     .sort((a,b)=>{
-      const so=(seasonOrder[a.season]??99)-(seasonOrder[b.season]??99);
+      const so=String(b.season||'').localeCompare(String(a.season||''));
       return so!==0 ? so : b.num-a.num;
     }).slice(0,6);
   if(!recent.length){ el.innerHTML='<div class="empty-state">No trades</div>'; return; }
@@ -1913,7 +1912,7 @@ function renderKeepersYear(yr){
 // ─── TRADES ───────────────────────────────────────────────────────────────────
 function renderTradesSetup(){
   // Year pills
-  const seasons = ['all','2025-26','2024-25','2023-24','2022-23','2021-22'];
+  const seasons = ['all', ...[...new Set(S.trades.map(t=>t.season).filter(Boolean))].sort().reverse()];
   const pillEl = document.getElementById('tr-year-pills');
   pillEl.innerHTML = seasons.map(s=>`
     <button class="pill ${s===S.trYear?'active':''}" onclick="setTrYear('${s}')">${s==='all'?'All Seasons':s}</button>
@@ -1950,7 +1949,6 @@ function setTrSport(sp){
   filterTrades();
 }
 
-const TR_SEASON_ORDER = {'2025-26':0,'2024-25':1,'2023-24':2,'2022-23':3,'2021-22':4};
 
 function filterTrades(){
   const search = (document.getElementById('tr-search').value||'').toLowerCase();
@@ -1973,7 +1971,7 @@ function filterTrades(){
 
   // Sort: newest season first, highest trade# first within season
   S.filteredTrades.sort((a,b)=>{
-    const so=(TR_SEASON_ORDER[a.season]??99)-(TR_SEASON_ORDER[b.season]??99);
+    const so=String(b.season||'').localeCompare(String(a.season||''));
     return so!==0 ? so : b.num-a.num;
   });
 
