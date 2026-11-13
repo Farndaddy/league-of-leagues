@@ -1,9 +1,9 @@
 // League of Leagues - Auto-generated data file
-// Updated: November 08, 2026 at 12:30 AM
+// Updated: November 13, 2026 at 12:16 AM
 // DO NOT EDIT - run sync_from_sheet.py to regenerate
 
 window.LIVE_DATA = {
- "updated": "2026-11-08T00:30:39.263042",
+ "updated": "2026-11-13T00:16:57.035276",
  "rawStandings": null,
  "rawTrades": null,
  "rawDrafts": {
@@ -20767,7 +20767,14 @@ window.LIVE_DATA = {
       null,
       null,
       null,
-      null,
+      {
+       "player": null,
+       "sport": null,
+       "color": "FF9900",
+       "owned_by": "1st and Inches - Ted",
+       "is_traded": true,
+       "traded_to": "TC"
+      },
       null,
       null,
       null
