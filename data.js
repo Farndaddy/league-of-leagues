@@ -1,9 +1,9 @@
 // League of Leagues - Auto-generated data file
-// Updated: November 13, 2026 at 12:16 AM
+// Updated: November 15, 2026 at 05:27 PM
 // DO NOT EDIT - run sync_from_sheet.py to regenerate
 
 window.LIVE_DATA = {
- "updated": "2026-11-13T00:16:57.035276",
+ "updated": "2026-11-15T17:27:42.665298",
  "rawStandings": null,
  "rawTrades": null,
  "rawDrafts": {
@@ -20498,7 +20498,14 @@ window.LIVE_DATA = {
      "round": 13,
      "dir": "--->",
      "picks": [
-      null,
+      {
+       "player": null,
+       "sport": null,
+       "color": "FF9900",
+       "owned_by": "Thanos - Moses",
+       "is_traded": true,
+       "traded_to": "MJ"
+      },
       null,
       null,
       null,
@@ -20516,7 +20523,14 @@ window.LIVE_DATA = {
      "round": 14,
      "dir": "<---",
      "picks": [
-      null,
+      {
+       "player": null,
+       "sport": null,
+       "color": "FF9900",
+       "owned_by": "Thanos - Moses",
+       "is_traded": true,
+       "traded_to": "MJ"
+      },
       null,
       {
        "player": null,
@@ -20548,7 +20562,14 @@ window.LIVE_DATA = {
      "round": 15,
      "dir": "--->",
      "picks": [
-      null,
+      {
+       "player": null,
+       "sport": null,
+       "color": "FF9900",
+       "owned_by": "Eminent Domain - De",
+       "is_traded": true,
+       "traded_to": "De"
+      },
       null,
       null,
       null,
@@ -20566,7 +20587,14 @@ window.LIVE_DATA = {
      "round": 16,
      "dir": "<---",
      "picks": [
-      null,
+      {
+       "player": null,
+       "sport": null,
+       "color": "FF9900",
+       "owned_by": "Eminent Domain - De",
+       "is_traded": true,
+       "traded_to": "De"
+      },
       null,
       null,
       null,
@@ -20649,7 +20677,14 @@ window.LIVE_DATA = {
       null,
       null,
       null,
-      null,
+      {
+       "player": null,
+       "sport": null,
+       "color": "FF9900",
+       "owned_by": "Turbo Team - Jon",
+       "is_traded": true,
+       "traded_to": "JL"
+      },
       null,
       null,
       null
@@ -20749,7 +20784,14 @@ window.LIVE_DATA = {
       null,
       null,
       null,
-      null,
+      {
+       "player": null,
+       "sport": null,
+       "color": "FF9900",
+       "owned_by": "Turbo Team - Jon",
+       "is_traded": true,
+       "traded_to": "JL"
+      },
       null,
       null,
       null
@@ -20834,7 +20876,14 @@ window.LIVE_DATA = {
       },
       null,
       null,
-      null
+      {
+       "player": null,
+       "sport": null,
+       "color": "FF9900",
+       "owned_by": "Turbo Team - Jon",
+       "is_traded": true,
+       "traded_to": "JL"
+      }
      ]
     },
     {
@@ -20866,7 +20915,14 @@ window.LIVE_DATA = {
       },
       null,
       null,
-      null
+      {
+       "player": null,
+       "sport": null,
+       "color": "FF9900",
+       "owned_by": "Turbo Team - Jon",
+       "is_traded": true,
+       "traded_to": "JL"
+      }
      ]
     },
     {
@@ -22688,6 +22744,44 @@ window.LIVE_DATA = {
     "team": "1st and Inches",
     "players": "Tobias Harris (NBA)",
     "picks": "14th Round"
+   }
+  },
+  {
+   "num": 9,
+   "date": "11/14/2026",
+   "season": "2026-27",
+   "sport": "NFL",
+   "context": "2026 NFL",
+   "side_a": {
+    "owner": "De Smith",
+    "team": "Eminent Domain",
+    "players": "George Pickens (NFL)\nVJ Edgecomb (NBA)",
+    "picks": "26th Round\n27th Round"
+   },
+   "side_b": {
+    "owner": "Jon Love",
+    "team": "Turbo Team",
+    "players": "Darren Waller (NFL)\nJustin Champagnie (NBA)",
+    "picks": "15th Round\n16th Round"
+   }
+  },
+  {
+   "num": 10,
+   "date": "11/14/2026",
+   "season": "2026-27",
+   "sport": "NBA",
+   "context": "2026-27 NBA",
+   "side_a": {
+    "owner": "Moses Joseph",
+    "team": "Thanos",
+    "players": "Anthony Black (NBA)\nPJ Washington (NBA)",
+    "picks": "19th Round\n23rd Round"
+   },
+   "side_b": {
+    "owner": "Jon Love",
+    "team": "Turbo Team",
+    "players": "Bradley Beal (NBA)",
+    "picks": "13th Round\n14th Round"
    }
   },
   {
