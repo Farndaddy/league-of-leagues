@@ -382,11 +382,15 @@
   }
 /* Drafted Roster by Sport */
 .rbs-grid{display:grid;gap:16px;}
+.rbs-grid.rbs-grid-3{grid-template-columns:repeat(3,minmax(0,1fr));align-items:start;}
+@media(max-width:1100px){.rbs-grid.rbs-grid-3{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:700px){.rbs-grid.rbs-grid-3{grid-template-columns:1fr;}}
 .rbs-team{border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--card);}
 .rbs-team-head{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border);}
 .rbs-team-name{font-weight:600;}
 .rbs-team-owner{color:var(--text-2);font-size:12px;}
 .rbs-sports{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:0;}
+.rbs-grid-3 .rbs-sports{grid-template-columns:1fr;}
 .rbs-sport{padding:10px 14px;border-right:1px solid var(--border);}
 .rbs-sport:last-child{border-right:none;}
 .rbs-sport-head{font-size:11px;font-weight:700;letter-spacing:.06em;padding-bottom:6px;margin-bottom:6px;border-bottom:1px solid var(--border);display:flex;align-items:center;}
@@ -833,6 +837,7 @@ function switchTab(tab){
   else if(tab==='keepers') renderKeepers();
   else if(tab==='trades') renderTradesSetup();
   else if(tab==='rosters') renderRosters();
+  updateUrl();
 }
 
 // ─── OVERVIEW ─────────────────────────────────────────────────────────────────
@@ -909,6 +914,7 @@ function setOvYear(yr){
   S.ovYear = yr;
   renderOvYearPills();
   renderOvStandings();
+  updateUrl();
 }
 
 function renderOvStandings(){
@@ -1049,6 +1055,7 @@ function renderCareerEarnings(){
 // ─── DRAFT BOARD ──────────────────────────────────────────────────────────────
 function renderDraftBoard(yr){
   S.draftYear = yr;
+  updateUrl();
 
   // Year pills
   const pillEl = document.getElementById('db-year-pills');
@@ -1206,6 +1213,7 @@ function renderDraftBoard(yr){
 
 // ─── DRAFT RESULTS ─────────────────────────────────────────────────────────────
 function renderDraftResults(){
+  updateUrl();
   // Year pills
   const pillEl = document.getElementById('dr-year-pills');
   pillEl.innerHTML = CONFIG.DRAFT_YEARS.map(y=>`
@@ -1490,7 +1498,8 @@ function renderResultsBySport(draft, allPicks, teams, el){
   const hasPos = rosters.some(r => r.some(x => x.pos));
   const sports = S.resultsSport === 'All' ? ['NFL','NBA','MLB'] : [S.resultsSport];
 
-  let html = '<div class="rbs-grid">';
+  // One sport selected → teams laid out 3 across; All → one card per team with NFL/NBA/MLB side by side
+  let html = `<div class="rbs-grid${sports.length===1?' rbs-grid-3':''}">`;
   for(let ti=0; ti<teams.length; ti++){
     const t = teams[ti];
     const mine = rosters[ti];
@@ -1557,6 +1566,7 @@ function setResultsView(v){
 
 // ─── STANDINGS ────────────────────────────────────────────────────────────────
 function renderStandings(){
+  updateUrl();
   buildStandingsFromSD(S.stdYear);
 
   // Year pills
@@ -1749,6 +1759,7 @@ function computeMostTop3(){
 
 // ─── KEEPERS ──────────────────────────────────────────────────────────────────
 function renderKeepers(){
+  updateUrl();
   // Update view pills
   document.querySelectorAll('#kp-view-pills .pill').forEach(el=>{
     const fn = el.getAttribute('onclick')||'';
@@ -1937,6 +1948,7 @@ function setTrYear(yr){
   });
   filterTrades();
   renderTradersChart();
+  updateUrl();
 }
 
 function setTrSport(sp){
@@ -1947,6 +1959,7 @@ function setTrSport(sp){
     if(m) el.classList.toggle('active', m[1]===sp);
   });
   filterTrades();
+  updateUrl();
 }
 
 
@@ -2111,6 +2124,7 @@ function setRoSport(sport){
     if(b.textContent.trim() === sport) b.classList.add('active');
   });
   renderRosters();
+  updateUrl();
 }
 
 function renderRosters(){
@@ -2199,7 +2213,95 @@ function renderRosters(){
 function setRoYear(yr){
   ROSTER_STATE.year = String(yr);
   renderRosters();
+  updateUrl();
 }
+
+// ─── URL ROUTING ──────────────────────────────────────────────────────────────
+// Every view has its own address, e.g. #/draft-board/2027, #/draft-results/2026/by-sport/mlb,
+// #/standings/2024-25/nba, #/keepers/2023-24/nfl, #/trades/2025-26/all, #/final-rosters/mlb/2025
+let ROUTING = false;      // true while applying a URL, so we don't push it back onto history
+let LAST_HASH = null;
+const TAB_SLUGS = { overview:'overview', draftboard:'draft-board', draftresults:'draft-results',
+  standings:'standings', keepers:'keepers', trades:'trades', rosters:'final-rosters' };
+const RESULTS_VIEW_SLUGS = { sport:'by-sport', seq:'by-order', team:'by-team' };
+function labelToSeason(lbl){
+  for(const [yr,l] of Object.entries(seasonLabels)) if(l===lbl) return Number(yr);
+  return null;
+}
+function buildHash(){
+  switch(S.tab){
+    case 'overview':     return '#/overview/' + (seasonLabels[S.ovYear] || S.ovYear);
+    case 'draftboard':   return '#/draft-board/' + S.draftYear;
+    case 'draftresults': return '#/draft-results/' + S.resultsYear + '/' + RESULTS_VIEW_SLUGS[S.resultsView]
+                           + (S.resultsView==='sport' ? '/' + S.resultsSport.toLowerCase() : '');
+    case 'standings':    return '#/standings/' + (S.stdYear==='alltime' ? 'all-time' : seasonLabels[S.stdYear]) + '/' + S.standingsView;
+    case 'keepers':      return '#/keepers/' + (S.kpView==='alltime' ? 'all-time' : seasonLabels[S.kpYear]) + '/' + String(S.kpSport).toLowerCase();
+    case 'trades':       return '#/trades/' + (S.trYear==='all' ? 'all-seasons' : S.trYear) + '/' + String(S.trSport).toLowerCase();
+    case 'rosters':      return '#/final-rosters/' + ROSTER_STATE.sport.toLowerCase() + (ROSTER_STATE.year ? '/' + ROSTER_STATE.year : '');
+  }
+  return '';
+}
+function updateUrl(){
+  if(ROUTING) return;
+  const h = buildHash();
+  if(!h || location.hash === h) return;
+  history.pushState(null, '', h);
+  LAST_HASH = h;
+}
+function applyRoute(hash){
+  hash = hash || '';
+  if(hash === LAST_HASH) return;
+  const parts = hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
+  const tab = Object.keys(TAB_SLUGS).find(k => TAB_SLUGS[k] === (parts[0]||'').toLowerCase()) || 'overview';
+  const a = parts[1], b = parts[2], c = parts[3];
+  const SPORTS = ['NFL','NBA','MLB'];
+  const up = x => String(x||'').toUpperCase();
+
+  ROUTING = true;
+  try{
+    if(tab==='overview'){
+      const yr = labelToSeason(a); if(yr) S.ovYear = yr;
+      switchTab('overview');
+    } else if(tab==='draftboard'){
+      const yr = Number(a); if(CONFIG.DRAFT_YEARS.includes(yr)) S.draftYear = yr;
+      switchTab('draftboard');
+    } else if(tab==='draftresults'){
+      const yr = Number(a); if(CONFIG.DRAFT_YEARS.includes(yr)) S.resultsYear = yr;
+      const v = Object.keys(RESULTS_VIEW_SLUGS).find(k => RESULTS_VIEW_SLUGS[k] === b); if(v) S.resultsView = v;
+      if(c) S.resultsSport = SPORTS.includes(up(c)) ? up(c) : 'All';
+      switchTab('draftresults');
+    } else if(tab==='standings'){
+      if(a==='all-time') S.stdYear = 'alltime'; else { const yr = labelToSeason(a); if(yr) S.stdYear = yr; }
+      if(['overall','nfl','nba','mlb'].includes(b)) S.standingsView = b;
+      switchTab('standings');
+    } else if(tab==='keepers'){
+      if(a==='all-time') S.kpView = 'alltime';
+      else { const yr = labelToSeason(a); if(yr){ S.kpView = 'year'; S.kpYear = yr; } }
+      switchTab('keepers');
+      setKpSport(SPORTS.includes(up(b)) ? up(b) : 'all');
+    } else if(tab==='trades'){
+      if(a==='all-seasons') S.trYear = 'all'; else if(a && S.trades.some(t => t.season === a)) S.trYear = a;
+      if(b) S.trSport = SPORTS.includes(up(b)) ? up(b) : (b==='draft' ? 'Draft' : 'all');
+      switchTab('trades');
+    } else if(tab==='rosters'){
+      switchTab('rosters');
+      if(SPORTS.includes(up(a))) setRoSport(up(a));
+      if(b) setRoYear(b);
+    }
+  } finally {
+    ROUTING = false;
+  }
+  // Tidy the address bar to the canonical form without adding a history entry
+  if(hash){
+    const h = buildHash();
+    if(h && location.hash !== h) history.replaceState(null, '', h);
+    LAST_HASH = h;
+  } else {
+    LAST_HASH = '';
+  }
+}
+window.addEventListener('popstate', () => applyRoute(location.hash));
+window.addEventListener('hashchange', () => applyRoute(location.hash));
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 function init(){
@@ -2227,8 +2329,8 @@ function init(){
   // Hide loading screen
   document.getElementById('loading').style.display='none';
 
-  // Render default tab
-  renderOverview();
+  // Open whatever page the URL points to (Overview if none)
+  applyRoute(location.hash);
 }
 
 // Wait for DOM + data.js
