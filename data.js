@@ -1,9 +1,9 @@
 // League of Leagues - Auto-generated data file
-// Updated: November 15, 2026 at 05:27 PM
+// Updated: November 20, 2026 at 04:42 PM
 // DO NOT EDIT - run sync_from_sheet.py to regenerate
 
 window.LIVE_DATA = {
- "updated": "2026-11-15T17:27:42.665298",
+ "updated": "2026-11-20T16:42:09.860410",
  "rawStandings": null,
  "rawTrades": null,
  "rawDrafts": {
@@ -20109,7 +20109,7 @@ window.LIVE_DATA = {
      "col": 3,
      "owner": "Chaz Quinn",
      "initials": "CQ",
-     "team": "KingFish"
+     "team": "2 Guys No Cups"
     },
     {
      "col": 4,
@@ -20179,7 +20179,14 @@ window.LIVE_DATA = {
      "picks": [
       null,
       null,
-      null,
+      {
+       "player": null,
+       "sport": null,
+       "color": "FF9900",
+       "owned_by": "2 Guys - CQ&SB",
+       "is_traded": true,
+       "traded_to": "CQ"
+      },
       null,
       null,
       {
@@ -20227,6 +20234,8 @@ window.LIVE_DATA = {
      "round": 3,
      "dir": "--->",
      "picks": [
+      null,
+      null,
       {
        "player": null,
        "sport": null,
@@ -20234,15 +20243,6 @@ window.LIVE_DATA = {
        "owned_by": "Eminent Domain - De*",
        "is_traded": true,
        "traded_to": "De"
-      },
-      null,
-      {
-       "player": null,
-       "sport": null,
-       "color": "FF9900",
-       "owned_by": "Turbo Team - Jon",
-       "is_traded": true,
-       "traded_to": "JL"
       },
       null,
       null,
@@ -20288,7 +20288,14 @@ window.LIVE_DATA = {
        "traded_to": "FG"
       },
       null,
-      null,
+      {
+       "player": null,
+       "sport": null,
+       "color": "FF9900",
+       "owned_by": "2 Guys - CQ&SB",
+       "is_traded": true,
+       "traded_to": "CQ"
+      },
       {
        "player": null,
        "sport": null,
@@ -20311,7 +20318,14 @@ window.LIVE_DATA = {
      "picks": [
       null,
       null,
-      null,
+      {
+       "player": null,
+       "sport": null,
+       "color": "FF9900",
+       "owned_by": "2 Guys - CQ&SB",
+       "is_traded": true,
+       "traded_to": "CQ"
+      },
       {
        "player": null,
        "sport": null,
@@ -20352,7 +20366,14 @@ window.LIVE_DATA = {
       null,
       null,
       null,
-      null,
+      {
+       "player": null,
+       "sport": null,
+       "color": "FF9900",
+       "owned_by": "2 Guys - CQ&SB",
+       "is_traded": true,
+       "traded_to": "CQ"
+      },
       null,
       null,
       null,
@@ -20400,7 +20421,14 @@ window.LIVE_DATA = {
      "picks": [
       null,
       null,
-      null,
+      {
+       "player": null,
+       "sport": null,
+       "color": "FF9900",
+       "owned_by": "2 Guys - CQ&SB",
+       "is_traded": true,
+       "traded_to": "CQ"
+      },
       null,
       null,
       null,
@@ -20541,7 +20569,14 @@ window.LIVE_DATA = {
        "traded_to": "JL"
       },
       null,
-      null,
+      {
+       "player": null,
+       "sport": null,
+       "color": "FF9900",
+       "owned_by": "2 Guys - CQ&SB",
+       "is_traded": true,
+       "traded_to": "CQ"
+      },
       {
        "player": null,
        "sport": null,
@@ -20745,7 +20780,14 @@ window.LIVE_DATA = {
      "dir": "<---",
      "picks": [
       null,
-      null,
+      {
+       "player": null,
+       "sport": null,
+       "color": "FF9900",
+       "owned_by": "Triple Threat - Farnia",
+       "is_traded": true,
+       "traded_to": "FG"
+      },
       null,
       null,
       {
@@ -20802,7 +20844,14 @@ window.LIVE_DATA = {
      "dir": "<---",
      "picks": [
       null,
-      null,
+      {
+       "player": null,
+       "sport": null,
+       "color": "FF9900",
+       "owned_by": "Triple Threat - Farnia",
+       "is_traded": true,
+       "traded_to": "FG"
+      },
       null,
       null,
       null,
@@ -20859,7 +20908,14 @@ window.LIVE_DATA = {
      "dir": "<---",
      "picks": [
       null,
-      null,
+      {
+       "player": null,
+       "sport": null,
+       "color": "FF9900",
+       "owned_by": "Triple Threat - Farnia",
+       "is_traded": true,
+       "traded_to": "FG"
+      },
       null,
       null,
       null,
@@ -20930,7 +20986,14 @@ window.LIVE_DATA = {
      "dir": "<---",
      "picks": [
       null,
-      null,
+      {
+       "player": null,
+       "sport": null,
+       "color": "FF9900",
+       "owned_by": "Blitz Zone - Weller",
+       "is_traded": true,
+       "traded_to": "AW"
+      },
       null,
       null,
       null,
@@ -20969,7 +21032,14 @@ window.LIVE_DATA = {
        "is_traded": true,
        "traded_to": "AW"
       },
-      null,
+      {
+       "player": null,
+       "sport": null,
+       "color": "FF9900",
+       "owned_by": "Blitz Zone - Weller",
+       "is_traded": true,
+       "traded_to": "AW"
+      },
       null,
       null,
       null,
@@ -21008,7 +21078,14 @@ window.LIVE_DATA = {
        "is_traded": true,
        "traded_to": "AW"
       },
-      null,
+      {
+       "player": null,
+       "sport": null,
+       "color": "FF9900",
+       "owned_by": "Blitz Zone - Weller",
+       "is_traded": true,
+       "traded_to": "AW"
+      },
       null,
       null,
       null,
@@ -22782,6 +22859,44 @@ window.LIVE_DATA = {
     "team": "Turbo Team",
     "players": "Bradley Beal (NBA)",
     "picks": "13th Round\n14th Round"
+   }
+  },
+  {
+   "num": 11,
+   "date": "11/19/2026",
+   "season": "2026-27",
+   "sport": "NBA",
+   "context": "2026-27 NBA",
+   "side_a": {
+    "owner": "Adam Weller",
+    "team": "Blitz Zone Adam",
+    "players": "Jaylin Williams (NBA)",
+    "picks": "1st Round\n6th Round\n9th Round"
+   },
+   "side_b": {
+    "owner": "Chaz & Sam",
+    "team": "2 Guys No Cups",
+    "players": "Nikola Jokic (NBA)",
+    "picks": "28th Round\n29th Round\n30th Round"
+   }
+  },
+  {
+   "num": 12,
+   "date": "11/19/2026",
+   "season": "2026-27",
+   "sport": "NBA",
+   "context": "2026-27 NBA",
+   "side_a": {
+    "owner": "Farnia Ghavami",
+    "team": "Triple Threat Sports",
+    "players": "TBD",
+    "picks": "5th Round (Triple Threats)\n7th Round\n14th Round"
+   },
+   "side_b": {
+    "owner": "Chaz & Sam",
+    "team": "2 Guys No Cups",
+    "players": "Pascal Siakam (NBA)\nMikal Bridges (NBA)\nSadiq Bey (NBA)",
+    "picks": "22nd Round\n24th Round\n26th Round"
    }
   },
   {
